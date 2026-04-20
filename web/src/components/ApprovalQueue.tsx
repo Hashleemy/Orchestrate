@@ -1,4 +1,5 @@
 import { ApprovalCard } from './ApprovalCard'
+import { Glyph } from './Glyph'
 import type { Approval } from '../types'
 
 interface Props {
@@ -13,7 +14,7 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
   if (approvals.length === 0) {
     return (
       <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
-        <div style={{ fontSize: 20, marginBottom: 6 }}>🟢</div>
+        <div style={{ marginBottom: 8 }}><Glyph name="approvals" size={22} color="#16a34a" /></div>
         No approvals pending. Agents will request approval here for things like
         package installs, sensitive-file edits, and merges to main.
       </div>

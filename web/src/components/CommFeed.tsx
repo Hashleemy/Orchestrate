@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+import { Glyph } from './Glyph'
 import type { AgentMessage, OrchestratorEvent } from '../types'
 
 interface Props {
@@ -51,10 +53,44 @@ export function CommFeed({ events, messages, maxItems = 120 }: Props) {
   .sort((a, b) => b.ts - a.ts)
   .slice(0, maxItems)
 
+  const mounted = useRef(false)
+  const knownKeys = useRef<Set<string>>(new Set())
+  const [flashingKeys, setFlashingKeys] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!mounted.current) {
+      for (const it of items) knownKeys.current.add(feedKey(it))
+      mounted.current = true
+      return
+    }
+    const newKeys: string[] = []
+    for (const it of items) {
+      const k = feedKey(it)
+      if (!knownKeys.current.has(k)) {
+        newKeys.push(k)
+        knownKeys.current.add(k)
+      }
+    }
+    if (newKeys.length === 0) return
+    setFlashingKeys(prev => {
+      const next = new Set(prev)
+      for (const k of newKeys) next.add(k)
+      return next
+    })
+    const t = window.setTimeout(() => {
+      setFlashingKeys(prev => {
+        const next = new Set(prev)
+        for (const k of newKeys) next.delete(k)
+        return next
+      })
+    }, 2000)
+    return () => window.clearTimeout(t)
+  }, [items])
+
   if (items.length === 0) {
     return (
       <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
-        <div style={{ fontSize: 20, marginBottom: 6 }}>💬</div>
+        <div style={{ marginBottom: 8 }}><Glyph name="comms" size={22} /></div>
         No communications yet. Events and inter-agent messages will stream here live.
       </div>
     )
@@ -62,21 +98,35 @@ export function CommFeed({ events, messages, maxItems = 120 }: Props) {
 
   return (
     <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {items.map((item, i) =>
-        item.kind === 'event'
-          ? <EventRow key={`e-${i}`} event={item.data} />
-          : <MessageRow key={`m-${i}`} message={item.data} />
-      )}
+      {items.map((item) => {
+        const k = feedKey(item)
+        const flash = flashingKeys.has(k)
+        return item.kind === 'event'
+          ? <EventRow key={k} event={item.data} flash={flash} />
+          : <MessageRow key={k} message={item.data} flash={flash} />
+      })}
     </div>
   )
 }
 
-function EventRow({ event }: { event: OrchestratorEvent }) {
+function feedKey(item: FeedItem): string {
+  if (item.kind === 'event') {
+    const d = item.data
+    return `e|${d.agent}|${d.timestamp}|${d.type}|${d.detail ?? ''}`
+  }
+  const d = item.data
+  return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
+}
+
+function EventRow({ event, flash }: { event: OrchestratorEvent; flash?: boolean }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
     <div style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
-      padding: '4px 0', borderBottom: '1px solid #111827',
+      padding: '4px 0 4px 6px', borderBottom: '1px solid #111827',
+      borderLeft: flash ? `3px solid ${color}` : '3px solid transparent',
+      background: flash ? `${color}10` : undefined,
+      transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
     }}>
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>
@@ -98,12 +148,15 @@ function EventRow({ event }: { event: OrchestratorEvent }) {
   )
 }
 
-function MessageRow({ message }: { message: AgentMessage }) {
+function MessageRow({ message, flash }: { message: AgentMessage; flash?: boolean }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
     <div style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
-      padding: '5px 0', borderBottom: '1px solid #111827',
+      padding: '5px 0 5px 6px', borderBottom: '1px solid #111827',
+      borderLeft: flash ? `3px solid ${color}` : '3px solid transparent',
+      background: flash ? `${color}10` : undefined,
+      transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
     }}>
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>

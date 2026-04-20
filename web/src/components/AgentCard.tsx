@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { CopyId } from './CopyId'
 import { toast } from './Toast'
 import type { AgentPushResult, AgentStatus, DiffSummary } from '../types'
 
@@ -160,8 +161,8 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
         </div>
       </div>
 
-      <Row label="Task"   value={agent.task_id    || '—'} />
-      <Row label="Branch" value={agent.branch     || '—'} />
+      <Row label="Task"   value={agent.task_id    || '—'} copyable={!!agent.task_id} />
+      <Row label="Branch" value={agent.branch     || '—'} copyable={!!agent.branch} />
       <Row label="Action" value={agent.last_action || '—'} muted />
 
       {(dead || stale) && (
@@ -379,14 +380,16 @@ function DiffPanel({ diff }: { diff: DiffSummary }) {
   )
 }
 
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function Row({ label, value, muted, copyable }: { label: string; value: string; muted?: boolean; copyable?: boolean }) {
   return (
     <div style={{ display: 'flex', gap: 6, fontSize: 12, marginBottom: 2 }}>
       <span style={{ color: '#6b7280', minWidth: 48 }}>{label}</span>
       <span style={{
         color: muted ? '#9ca3af' : '#d1d5db',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{value}</span>
+      }}>
+        {copyable ? <CopyId value={value} color={muted ? '#9ca3af' : '#d1d5db'} monospace={false} /> : value}
+      </span>
     </div>
   )
 }

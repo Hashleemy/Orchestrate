@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api/client'
+import { Glyph } from './Glyph'
 import { toast } from './Toast'
 import type { AgentMergeResult, ReviewRequest, ReviewVerdict } from '../types'
 
@@ -259,7 +260,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
         </div>
       ) : (
         <div style={{ padding: 20, color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>
-          <div style={{ fontSize: 22, marginBottom: 4 }}>🔍</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Glyph name="reviews" size={22} /></div>
           No reviews yet. Request a review by spawning a reviewer for a worker
           whose branch you want evaluated — verdicts will appear here.
         </div>

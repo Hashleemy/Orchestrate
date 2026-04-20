@@ -8,6 +8,7 @@ import { CommFeed }         from '../components/CommFeed'
 import { RepoHeader }       from '../components/RepoHeader'
 import { ReviewPanel }      from '../components/ReviewPanel'
 import { RunHistory }       from '../components/RunHistory'
+import { Glyph }            from '../components/Glyph'
 import { StartRunModal }    from '../components/StartRunModal'
 import { TaskBoard }        from '../components/TaskBoard'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
@@ -59,8 +60,23 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
     <div style={{ padding: 24, maxWidth: 1600, margin: '0 auto' }}>
       {showModal && <StartRunModal onStart={onStartRun} onClose={() => setShowModal(false)} />}
 
-      {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      {/* Top bar — sticky */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        padding: '10px 12px',
+        marginLeft: -12,
+        marginRight: -12,
+        background: 'rgba(15, 23, 42, 0.85)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderBottom: '1px solid #1f2937',
+      }}>
         <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 18, fontWeight: 700 }}>
           Local Agent Orchestrator
         </h1>
@@ -101,7 +117,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Section title={`Agents (${agents.length})`}>
           {agents.length === 0
-            ? <Empty icon="🤖" text="No agents running. Click + Start Run to spawn a coordinator and workers." />
+            ? <Empty glyph="agents" text="No agents running. Click + Start Run to spawn a coordinator and workers." />
             : (() => {
                 const q = agentQuery.trim().toLowerCase()
                 const filtered = agents.filter(a => {
@@ -145,7 +161,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       {/* Row 2: Tasks (full width) */}
       <Section title={`Tasks (${tasks.length})`} style={{ marginBottom: 20 }}>
         {tasks.length === 0
-          ? <Empty icon="📋" text="No tasks loaded. Add examples/tasks.md to the target repo, or press N to add one from the UI." />
+          ? <Empty glyph="tasks" text="No tasks loaded. Add examples/tasks.md to the target repo, or press N to add one from the UI." />
           : <TaskBoard tasks={tasks} onTaskCreated={onTaskCreated} />
         }
       </Section>
@@ -206,10 +222,11 @@ function Pill({ label, count, color }: { label: string; count: number; color: st
   )
 }
 
-function Empty({ text, icon }: { text: string; icon?: string }) {
+function Empty({ text, icon, glyph }: { text: string; icon?: string; glyph?: 'agents' | 'tasks' | 'runs' | 'comms' | 'approvals' | 'reviews' }) {
   return (
     <div style={{ color: '#6b7280', fontSize: 13, padding: '14px 6px', lineHeight: 1.6 }}>
-      {icon && <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>}
+      {glyph && <div style={{ marginBottom: 8 }}><Glyph name={glyph} size={24} /></div>}
+      {icon && !glyph && <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>}
       {text}
     </div>
   )

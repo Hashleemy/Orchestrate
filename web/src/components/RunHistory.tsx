@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Glyph } from './Glyph'
 import type { RunRecord } from '../types'
 
 interface Props {
@@ -172,7 +173,7 @@ export function RunHistory({ runs }: Props) {
         background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: 24,
         color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6,
       }}>
-        <div style={{ fontSize: 22, marginBottom: 6 }}>📜</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Glyph name="runs" size={22} /></div>
         No runs recorded yet. Each run you start will show up here with
         duration, tasks completed, and an export-to-Markdown option.
       </div>

@@ -422,7 +422,7 @@ acceptance:
 risk: low
 
 ### TASK-115
-status: todo
+status: done
 priority: normal
 type: feature
 title: Filter tasks by free-text search in title/ID/owner
@@ -437,7 +437,7 @@ acceptance:
 risk: low
 
 ### TASK-116
-status: todo
+status: done
 priority: normal
 type: feature
 title: Sticky top bar on Dashboard (header + pills always visible)
@@ -452,7 +452,7 @@ acceptance:
 risk: low
 
 ### TASK-117
-status: todo
+status: done
 priority: normal
 type: feature
 title: Copy-to-clipboard icons on branch/task IDs
@@ -468,7 +468,7 @@ acceptance:
 risk: low
 
 ### TASK-118
-status: todo
+status: done
 priority: normal
 type: feature
 title: Highlight newly appeared events in CommFeed for 2s
@@ -482,7 +482,7 @@ acceptance:
 risk: low
 
 ### TASK-119
-status: todo
+status: done
 priority: low
 type: polish
 title: Replace "agent" emoji in Agents empty state with cleaner glyph

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
+import { CopyId } from './CopyId'
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 }
 
@@ -93,6 +94,7 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortByPriority, setSortByPriority] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -113,7 +115,15 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [showForm])
 
-  const filtered = tasks.filter(t => filterStatus === 'all' || t.status === filterStatus)
+  const q = search.trim().toLowerCase()
+  const filtered = tasks.filter(t => {
+    if (filterStatus !== 'all' && t.status !== filterStatus) return false
+    if (q) {
+      const hay = `${t.id} ${t.title} ${t.owner ?? ''}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    return true
+  })
 
   const sorted = sortByPriority
     ? [...filtered].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
@@ -131,6 +141,35 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
 
   return (
     <div>
+      {/* Search */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search id, title, or owner…"
+          style={{
+            background: '#111827', border: '1px solid #374151', borderRadius: 5,
+            color: '#d1d5db', fontSize: 12, padding: '5px 10px', fontFamily: 'inherit',
+            width: 280, outline: 'none',
+          }}
+        />
+        {q && (
+          <>
+            <span style={{ color: '#6b7280', fontSize: 11 }}>
+              {filtered.length}/{tasks.length}
+            </span>
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                background: 'none', border: '1px solid #374151',
+                color: '#9ca3af', borderRadius: 4,
+                padding: '3px 9px', fontSize: 11, cursor: 'pointer',
+              }}
+            >Clear</button>
+          </>
+        )}
+      </div>
+
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
         {ALL_STATUSES.filter(s => s === 'all' || counts[s] > 0).map(s => (
@@ -208,7 +247,7 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
             <tbody>
               {sorted.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid #1f2937' }}>
-                  <td style={td()}><code style={{ fontSize: 11, color: '#93c5fd' }}>{t.id}</code></td>
+                  <td style={td()}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
                   <td style={td()}>
                     <StatusChip status={t.status} />
                   </td>
