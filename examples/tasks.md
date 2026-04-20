@@ -635,5 +635,143 @@ acceptance:
   - Collapsing hides children but keeps the title and count visible
 risk: low
 
+### TASK-129
+status: todo
+priority: normal
+type: feature
+title: Task detail drawer on click — show acceptance criteria and dependencies
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskDrawer.tsx
+  - web/src/components/TaskBoard.tsx
+acceptance:
+  - Clicking a task row opens a right-side drawer with full task details
+  - Drawer shows acceptance checklist, files, depends_on, owner, branch
+  - Esc or clicking outside closes the drawer
+risk: low
+
+### TASK-130
+status: todo
+priority: normal
+type: feature
+title: Highlight stale agents (no heartbeat in 90s) in AgentCard + AgentGraph
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+  - web/src/components/AgentGraph.tsx
+acceptance:
+  - AgentCard shows "STALE — last HB Xs ago" chip when heartbeat > 90s
+  - AgentGraph node gains a yellow/orange warning ring when stale
+  - Rolls back to normal once a fresh heartbeat is received
+risk: low
+
+### TASK-131
+status: todo
+priority: normal
+type: feature
+title: CommFeed search bar (free-text filter across event detail + message body)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Text input matches against event.detail, event.type, message.body, from, to
+  - Matches are case-insensitive substring
+  - Clearing the search returns all items
+risk: low
+
+### TASK-132
+status: todo
+priority: normal
+type: feature
+title: Checkpoint preview — show diff context for protected_merge checkpoints
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CheckpointPanel.tsx
+acceptance:
+  - For protected_merge checkpoints, fetch the agent diff like ApprovalCard does
+  - Render inline summary (files / +/− / reasons) inside the checkpoint card
+  - No diff fetch for non-diff trigger kinds
+risk: low
+
+### TASK-133
+status: todo
+priority: low
+type: feature
+title: Toast stacking + auto-dismiss animation polish
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/Toast.tsx
+acceptance:
+  - Toasts slide in from bottom-right and fade out after 4s
+  - Multiple toasts stack vertically with 8px gap
+  - Click dismisses immediately
+risk: low
+
+### TASK-134
+status: todo
+priority: normal
+type: feature
+title: Approval queue bulk-approve minor changes
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/ApprovalQueue.tsx
+acceptance:
+  - "Approve all minor" button when ≥2 minor pending approvals exist
+  - Confirmation prompt before bulk-approve
+  - Progress indicator while resolving batch
+risk: low
+
+### TASK-135
+status: todo
+priority: low
+type: feature
+title: RunHistory row expand animation + sticky run header
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/RunHistory.tsx
+acceptance:
+  - Expanding a row slides open with a 150ms transition
+  - When expanded, the run ID header stays sticky at the top of the row
+risk: low
+
+### TASK-136
+status: todo
+priority: normal
+type: feature
+title: Settings modal — configure polling intervals + stale thresholds
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/SettingsModal.tsx
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Gear icon in top bar opens the modal
+  - Form fields for heartbeat-stale threshold (default 90s) and LIVE threshold (default 10s)
+  - Values persist in localStorage and apply live
+risk: low
+
+### TASK-137
+status: todo
+priority: low
+type: feature
+title: Hover-to-copy for commit hashes in event feed
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+  - web/src/components/CopyId.tsx
+acceptance:
+  - Commit-type events detect sha patterns (7-40 hex chars) in detail and wrap in CopyId
+  - Hover reveals copy icon, click copies to clipboard + toasts
+  - Non-commit events render as before
+risk: low
+
 
 
