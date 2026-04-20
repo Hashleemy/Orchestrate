@@ -878,5 +878,126 @@ acceptance:
   - Collapsed by default
 risk: low
 
+### TASK-145
+status: todo
+priority: normal
+type: feature
+title: Communications feed — pin / star notable messages in current session
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Each row has a star/pin affordance on hover
+  - Starred rows persist in a separate filter view ("starred")
+  - Starred state persists in localStorage per session
+risk: low
+
+### TASK-146
+status: todo
+priority: normal
+type: feature
+title: Agent card — show last 3 events inline mini-timeline
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+acceptance:
+  - Under each card, a compact strip of the last 3 events for that agent
+  - Each entry shows icon + time-ago
+  - Clicking an entry filters CommFeed to that agent
+risk: low
+
+### TASK-147
+status: todo
+priority: normal
+type: feature
+title: TaskDrawer — show recent events and messages for the selected task
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskDrawer.tsx
+acceptance:
+  - Drawer has a lower section listing events and messages with task_id matching
+  - Latest 20 entries, newest first
+  - "Filter feed to this task" button threads into CommFeed
+risk: low
+
+### TASK-148
+status: todo
+priority: low
+type: feature
+title: Dashboard — compact mode toggle (dense spacing)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/components/AgentCard.tsx
+acceptance:
+  - Toolbar toggle labelled Compact that reduces padding/margins across the grid
+  - Choice persists in localStorage
+  - AgentCard honors compact mode by shrinking to a single-line layout
+risk: low
+
+### TASK-149
+status: todo
+priority: normal
+type: feature
+title: Export run — download a JSON snapshot of the current run
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Top bar has "Export" button that bundles agents/events/messages/verdicts into a JSON file
+  - File is downloaded via Blob + createObjectURL
+  - Filename contains the current timestamp
+risk: low
+
+### TASK-150
+status: todo
+priority: low
+type: feature
+title: Keyboard shortcut — "g" jumps the viewport to the Orchestration Graph
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/components/Shortcuts.tsx
+acceptance:
+  - Pressing "g" outside an input scrolls to the graph section (smooth)
+  - Shortcut listed in the ? overlay
+risk: low
+
+### TASK-151
+status: todo
+priority: normal
+type: feature
+title: SettingsModal — toggle dim-terminal-agents behavior
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/SettingsModal.tsx
+  - web/src/settings.ts
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Settings has a checkbox "Dim completed/stopped agents during active runs"
+  - Default on; unchecking disables dimming in AgentCard grid
+  - Persists in localStorage
+risk: low
+
+### TASK-152
+status: todo
+priority: normal
+type: feature
+title: AgentGraph — show review-request count badge on reviewer nodes
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentGraph.tsx
+acceptance:
+  - If an agent is a reviewer with N open requests, a circular badge shows N near the node
+  - Badge uses reviewer yellow color scheme
+risk: low
 
 
