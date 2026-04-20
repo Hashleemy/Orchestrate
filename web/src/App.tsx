@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, openStream } from './api/client'
 import { Dashboard } from './pages/Dashboard'
+import { ToastHost } from './components/Toast'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from './types'
 
 export function App() {
@@ -108,6 +109,8 @@ export function App() {
   }
 
   return (
+    <>
+    <ToastHost />
     <Dashboard
       agents={agents}
       events={events}
@@ -128,5 +131,6 @@ export function App() {
       onStartRun={handleStartRun}
       onStopRun={handleStopRun}
     />
+    </>
   )
 }

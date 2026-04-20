@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { toast } from './Toast'
 import type { AgentPushResult, AgentStatus, DiffSummary } from '../types'
 
 const STATE_COLOR: Record<string, string> = {
@@ -77,9 +78,12 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
     setRespawnErr(null)
     try {
       await api.respawn(agent.agent)
+      toast('success', `${agent.agent} restarted`)
       onRespawn?.()
     } catch (e) {
-      setRespawnErr(String(e).replace(/^Error: /, ''))
+      const msg = String(e).replace(/^Error: /, '')
+      setRespawnErr(msg)
+      toast('error', 'Respawn failed', msg)
     } finally {
       setRespawning(false)
     }
@@ -91,8 +95,19 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
     try {
       const result = await api.pushBranch(agent.agent, force)
       setPushResult(result)
+      if (result.status === 'pushed') {
+        toast('success', `Pushed ${result.branch}`, force ? 'Force pushed' : undefined)
+      } else if (result.status === 'approval_required') {
+        toast('warning', 'Approval required', result.decision?.reasons?.join('\n'))
+      } else if (result.status === 'blocked') {
+        toast('error', 'Push blocked', result.decision?.reasons?.join('\n'))
+      } else {
+        toast('error', 'Push error', result.output)
+      }
     } catch (e) {
-      setPushResult({ agent_id: agent.agent, branch: agent.branch, status: 'error', output: String(e) })
+      const msg = String(e)
+      setPushResult({ agent_id: agent.agent, branch: agent.branch, status: 'error', output: msg })
+      toast('error', 'Push error', msg)
     } finally {
       setPushing(false)
     }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api/client'
+import { toast } from './Toast'
 import type { AgentMergeResult, ReviewRequest, ReviewVerdict } from '../types'
 
 interface Props {
@@ -77,8 +78,16 @@ function VerdictCard({ v }: { v: ReviewVerdict }) {
     try {
       const result = await api.mergeBranch(v.worker_id)
       setMergeResult(result)
-    } catch {
+      if (result.status === 'merged') {
+        toast('success', `Merged ${result.branch}`, `into ${result.into_branch}`)
+      } else if (result.status === 'conflicts') {
+        toast('warning', 'Merge conflicts', 'Resolve manually in the worktree')
+      } else {
+        toast('error', 'Merge failed', result.output)
+      }
+    } catch (e) {
       setMergeResult({ agent_id: v.worker_id, branch: v.branch, into_branch: 'main', status: 'error', conflicts: false })
+      toast('error', 'Merge error', String(e))
     } finally {
       setMerging(false)
     }
