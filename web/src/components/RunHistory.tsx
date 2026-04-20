@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Glyph } from './Glyph'
 import type { RunRecord } from '../types'
 
@@ -111,16 +111,26 @@ function downloadAllRunsMarkdown(runs: RunRecord[]) {
   downloadMarkdown(`runs-${new Date().toISOString().slice(0, 10)}.md`, header + body)
 }
 
-function RunRow({ run }: { run: RunRecord }) {
-  const [expanded, setExpanded] = useState(false)
+function RunRow({ run, expanded, onToggle, selected, onSelect, rowRef }: {
+  run: RunRecord
+  expanded: boolean
+  onToggle: () => void
+  selected?: boolean
+  onSelect?: () => void
+  rowRef?: (el: HTMLDivElement | null) => void
+}) {
   const pct = run.tasks_total > 0 ? Math.round((run.tasks_done / run.tasks_total) * 100) : 0
 
   return (
-    <div style={{ borderBottom: '1px solid #1f2937' }}>
+    <div ref={rowRef} style={{
+      borderBottom: '1px solid #1f2937',
+      borderLeft: selected ? '3px solid #38bdf8' : '3px solid transparent',
+    }}>
       <button
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => { onSelect?.(); onToggle() }}
+        onMouseEnter={onSelect}
         style={{
-          width: '100%', background: expanded ? '#0f172a' : 'none', border: 'none', cursor: 'pointer',
+          width: '100%', background: selected ? '#0b1d33' : expanded ? '#0f172a' : 'none', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 14,
           padding: '10px 16px', textAlign: 'left',
           position: expanded ? 'sticky' : undefined,
@@ -195,8 +205,20 @@ function Detail({ label, value, mono }: { label: string; value: string; mono?: b
 
 export function RunHistory({ runs }: Props) {
   const [statusFilter, setStatusFilter] = useState<Set<RunStatus>>(() => loadStatusFilter())
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [cursor, setCursor] = useState<number>(-1)
+  const [hovered, setHovered] = useState(false)
+  const rowRefs = useRef<Array<HTMLDivElement | null>>([])
 
   useEffect(() => { saveStatusFilter(statusFilter) }, [statusFilter])
+
+  function toggleExpanded(id: string) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   function toggleStatus(s: RunStatus) {
     setStatusFilter(prev => {
@@ -230,7 +252,11 @@ export function RunHistory({ runs }: Props) {
   for (const r of runs) counts[r.status] = (counts[r.status] ?? 0) + 1
 
   return (
-    <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, overflow: 'hidden' }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setCursor(-1) }}
+      style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, overflow: 'hidden' }}
+    >
       <div style={{ padding: '10px 16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ color: '#f9fafb', fontWeight: 700, fontSize: 14 }}>Run History</span>
         <span style={{
@@ -284,8 +310,70 @@ export function RunHistory({ runs }: Props) {
           No runs match this filter.
         </div>
       ) : (
-        filtered.map(r => <RunRow key={r.id} run={r} />)
+        filtered.map((r, i) => (
+          <RunRow
+            key={r.id}
+            run={r}
+            expanded={expanded.has(r.id)}
+            onToggle={() => toggleExpanded(r.id)}
+            selected={cursor === i}
+            onSelect={() => setCursor(i)}
+            rowRef={(el) => { rowRefs.current[i] = el }}
+          />
+        ))
+      )}
+      {hovered && (
+        <RunHistoryKeyNav
+          count={filtered.length}
+          cursor={cursor}
+          setCursor={setCursor}
+          onEnter={() => {
+            const run = filtered[cursor]
+            if (run) toggleExpanded(run.id)
+          }}
+          rowRefs={rowRefs}
+        />
       )}
     </div>
   )
+}
+
+function RunHistoryKeyNav({ count, cursor, setCursor, onEnter, rowRefs }: {
+  count: number
+  cursor: number
+  setCursor: (v: number | ((c: number) => number)) => void
+  onEnter: () => void
+  rowRefs: { current: Array<HTMLDivElement | null> }
+}) {
+  useEffect(() => {
+    function isTyping(t: EventTarget | null) {
+      if (!(t instanceof HTMLElement)) return false
+      const tag = t.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTyping(e.target)) return
+      if (count === 0) return
+      if (e.key === 'j') {
+        e.preventDefault()
+        setCursor((c: number) => Math.min(count - 1, c < 0 ? 0 : c + 1))
+      } else if (e.key === 'k') {
+        e.preventDefault()
+        setCursor((c: number) => Math.max(0, c < 0 ? 0 : c - 1))
+      } else if (e.key === 'Enter' && cursor >= 0) {
+        onEnter()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [count, cursor, onEnter, setCursor])
+
+  useEffect(() => {
+    if (cursor < 0) return
+    const el = rowRefs.current[cursor]
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [cursor, rowRefs])
+
+  return null
 }

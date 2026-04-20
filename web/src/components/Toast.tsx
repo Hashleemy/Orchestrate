@@ -71,13 +71,29 @@ export function ToastHost() {
     }, LEAVE_MS)
   }
 
+  function dismissAll() {
+    setItems(prev => prev.map(x => x.leaving ? x : { ...x, leaving: true }))
+    setTimeout(() => setItems([]), LEAVE_MS)
+  }
+
+  const activeCount = items.filter(i => !i.leaving).length
+
   return (
     <div style={{
       position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
       display: 'flex', flexDirection: 'column-reverse', gap: 8,
       maxWidth: 360, pointerEvents: 'none',
     }}>
-      {items.map(t => <ToastCard key={t.id} toast={t} leaving={t.leaving} onDismiss={() => beginLeave(t.id)} />)}
+      {items.map((t, i) => (
+        <ToastCard
+          key={t.id}
+          toast={t}
+          leaving={t.leaving}
+          onDismiss={() => beginLeave(t.id)}
+          stackCount={i === items.length - 1 && activeCount > 1 ? activeCount : undefined}
+          onDismissAll={dismissAll}
+        />
+      ))}
     </div>
   )
 }
@@ -96,7 +112,7 @@ const ICONS: Record<ToastKind, string> = {
   info:    'ℹ',
 }
 
-function ToastCard({ toast, onDismiss, leaving }: { toast: Toast; onDismiss: () => void; leaving?: boolean }) {
+function ToastCard({ toast, onDismiss, leaving, stackCount, onDismissAll }: { toast: Toast; onDismiss: () => void; leaving?: boolean; stackCount?: number; onDismissAll?: () => void }) {
   const c = COLORS[toast.kind]
   return (
     <div
@@ -106,12 +122,28 @@ function ToastCard({ toast, onDismiss, leaving }: { toast: Toast; onDismiss: () 
         color: c.text, fontSize: 13,
         boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
         pointerEvents: 'auto',
+        position: 'relative',
         animation: leaving
           ? `toast-fade-out ${LEAVE_MS}ms ease-in forwards`
           : 'toast-slide-in 220ms ease-out',
         display: 'flex', gap: 10, alignItems: 'flex-start',
       }}
     >
+      {stackCount !== undefined && stackCount > 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismissAll?.() }}
+          title={`Dismiss all ${stackCount} notifications`}
+          style={{
+            position: 'absolute', top: -8, left: -8,
+            background: c.icon, color: '#0b1220',
+            border: 'none', borderRadius: 10,
+            minWidth: 20, height: 20, padding: '0 6px',
+            fontSize: 11, fontWeight: 800, cursor: 'pointer',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >×{stackCount}</button>
+      )}
       <span style={{ color: c.icon, fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>{ICONS[toast.kind]}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, color: '#fff', marginBottom: toast.body ? 3 : 0 }}>{toast.title}</div>

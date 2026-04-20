@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { staleSec } from '../settings'
 import type { AgentMessage, AgentStatus, OrchestratorEvent, ReviewRequest } from '../types'
 
@@ -84,7 +84,10 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   const coord = agents.find(a => roleOf(a.agent) === 'coordinator')
   const workers = agents.filter(a => roleOf(a.agent) !== 'coordinator')
 
-  const W = 960, H = 360
+  const BASE_W = 960
+  const PER_WORKER = 150
+  const W = Math.max(BASE_W, workers.length * PER_WORKER)
+  const H = 360
   const coordX = W / 2, coordY = 80
   const workerY = 260
   const margin = 90
@@ -124,8 +127,37 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
     }
   }
 
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!selectedAgent) return
+    const pos = positions.get(selectedAgent)
+    const el = scrollRef.current
+    if (!pos || !el) return
+    const vw = el.clientWidth
+    const contentWidth = el.scrollWidth
+    if (contentWidth <= vw) return
+    const scale = contentWidth / W
+    const target = pos.x * scale - vw / 2
+    el.scrollTo({ left: Math.max(0, Math.min(contentWidth - vw, target)), behavior: 'smooth' })
+  }, [selectedAgent, W, positions])
+
+  const minWidth = W > BASE_W ? W * 0.8 : undefined
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 420, display: 'block' }}>
+    <div
+      ref={scrollRef}
+      style={{ width: '100%', overflowX: W > BASE_W ? 'auto' : 'visible' }}
+    >
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{
+        width: minWidth ? `${minWidth}px` : '100%',
+        minWidth: minWidth ? `${minWidth}px` : undefined,
+        height: 'auto', maxHeight: 420, display: 'block',
+      }}
+    >
       <defs>
         <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%"  stopColor="#1e3a8a" stopOpacity={0.25} />
@@ -215,6 +247,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
 
       <Legend x={20} y={H - 24} />
     </svg>
+    </div>
   )
 }
 

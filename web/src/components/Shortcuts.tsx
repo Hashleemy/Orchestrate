@@ -7,6 +7,7 @@ const SHORTCUTS: Shortcut[] = [
   { keys: ['/'],       description: 'Focus the agent filter input' },
   { keys: ['G'],       description: 'Jump to the orchestration graph' },
   { keys: ['S'],       description: 'Open the global search palette' },
+  { keys: ['C'],       description: 'Toggle compact mode' },
   { keys: ['Ctrl+K'],  description: 'Open the global search palette (works from inputs too)' },
   { keys: ['J', 'K'],  description: 'Move the communications feed cursor down / up' },
   { keys: ['Enter'],   description: 'Filter feed to the selected row\'s task' },

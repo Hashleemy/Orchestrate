@@ -23,6 +23,19 @@ type FeedItem =
 type TypeFilter = 'all' | 'events' | 'messages' | 'starred'
 
 const STARRED_KEY = 'orchestrate.commfeed.starred'
+const TYPE_FILTER_KEY = 'orchestrate.commfeed.typefilter'
+
+function loadTypeFilter(): TypeFilter {
+  try {
+    const raw = localStorage.getItem(TYPE_FILTER_KEY)
+    if (raw === 'all' || raw === 'events' || raw === 'messages' || raw === 'starred') return raw
+  } catch { /* ignore */ }
+  return 'all'
+}
+
+function saveTypeFilter(v: TypeFilter) {
+  try { localStorage.setItem(TYPE_FILTER_KEY, v) } catch { /* ignore */ }
+}
 
 function loadStarred(): Set<string> {
   try {
@@ -72,7 +85,8 @@ const MSG_TYPE_COLOR: Record<string, string> = {
 }
 
 export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter, taskFilter: taskFilterProp, onTaskFilterChange }: Props) {
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [typeFilter, setTypeFilterState] = useState<TypeFilter>(() => loadTypeFilter())
+  const setTypeFilter = (v: TypeFilter) => { saveTypeFilter(v); setTypeFilterState(v) }
   const [search, setSearch] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [newSinceScroll, setNewSinceScroll] = useState(0)
@@ -85,6 +99,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   const [starred, setStarred] = useState<Set<string>>(() => loadStarred())
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [cursor, setCursor] = useState<number>(-1)
+  const [navHovered, setNavHovered] = useState(false)
   const rowRefs = useRef<Array<HTMLDivElement | null>>([])
 
   function toggleStar(key: string) {
@@ -187,6 +202,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   }, [itemCount, cursor])
 
   useEffect(() => {
+    if (!navHovered) return
     function isTypingTarget(t: EventTarget | null): boolean {
       if (!(t instanceof HTMLElement)) return false
       const tag = t.tagName
@@ -216,7 +232,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [itemCount, cursor, items])
+  }, [itemCount, cursor, items, navHovered])
 
   useEffect(() => {
     if (cursor < 0) return
@@ -329,6 +345,8 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
       <div style={{ position: 'relative' }}>
         <div
           ref={scrollRef}
+          onMouseEnter={() => setNavHovered(true)}
+          onMouseLeave={() => { setNavHovered(false); setCursor(-1) }}
           onScroll={e => {
             const el = e.currentTarget
             if (el.scrollTop > 24 && autoScroll) setAutoScroll(false)

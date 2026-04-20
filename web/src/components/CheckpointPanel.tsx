@@ -21,6 +21,7 @@ interface Props {
 }
 
 const FILTER_KEY = 'orchestrate.checkpoint.kindfilter'
+const HIDDEN_KEY = 'orchestrate.checkpoint.hidden'
 
 function loadKindFilter(): Set<string> {
   try {
@@ -36,21 +37,72 @@ function saveKindFilter(s: Set<string>) {
   try { window.localStorage?.setItem(FILTER_KEY, JSON.stringify(Array.from(s))) } catch { /* ignore */ }
 }
 
+function loadHidden(): Set<string> {
+  try {
+    const raw = window.localStorage?.getItem(HIDDEN_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return new Set(arr.filter(x => typeof x === 'string'))
+  } catch { /* ignore */ }
+  return new Set()
+}
+
+function saveHidden(s: Set<string>) {
+  try { window.localStorage?.setItem(HIDDEN_KEY, JSON.stringify(Array.from(s))) } catch { /* ignore */ }
+}
+
 export function CheckpointPanel({ checkpoints, onResolved }: Props) {
   const pending = checkpoints.filter(c => c.status === 'pending')
 
   const [activeKinds, setActiveKinds] = useState<Set<string>>(() => loadKindFilter())
+  const [hidden, setHidden] = useState<Set<string>>(() => loadHidden())
+  const [showHidden, setShowHidden] = useState(false)
 
   useEffect(() => { saveKindFilter(activeKinds) }, [activeKinds])
+  useEffect(() => { saveHidden(hidden) }, [hidden])
+
+  useEffect(() => {
+    const pendingIds = new Set(pending.map(p => p.id))
+    const next = new Set<string>()
+    let changed = false
+    for (const id of hidden) {
+      if (pendingIds.has(id)) next.add(id)
+      else changed = true
+    }
+    if (changed) setHidden(next)
+  }, [pending, hidden])
 
   if (pending.length === 0) return null
 
+  const visiblePending = showHidden ? pending : pending.filter(c => !hidden.has(c.id))
+  const hiddenCount = pending.length - visiblePending.length
+
   const kindCounts = new Map<string, number>()
-  for (const cp of pending) kindCounts.set(cp.kind, (kindCounts.get(cp.kind) ?? 0) + 1)
+  for (const cp of visiblePending) kindCounts.set(cp.kind, (kindCounts.get(cp.kind) ?? 0) + 1)
   const kinds = Array.from(kindCounts.keys()).sort()
 
   const effective = activeKinds.size === 0 ? null : activeKinds
-  const filtered = effective ? pending.filter(c => effective.has(c.kind)) : pending
+  const filtered = effective ? visiblePending.filter(c => effective.has(c.kind)) : visiblePending
+
+  if (visiblePending.length === 0 && hiddenCount > 0) {
+    return (
+      <div style={{
+        background: '#1c0a00', border: '2px dashed #4b2005', borderRadius: 10,
+        padding: '10px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <span style={{ fontSize: 13, color: '#9a5a2a' }}>
+          {hiddenCount} checkpoint{hiddenCount !== 1 ? 's' : ''} hidden from view
+        </span>
+        <button
+          onClick={() => setShowHidden(true)}
+          style={{
+            background: 'transparent', border: '1px solid #4b2005',
+            color: '#fb923c', borderRadius: 4, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
+          }}
+        >Show hidden</button>
+      </div>
+    )
+  }
 
   function toggleKind(k: string) {
     setActiveKinds(prev => {
@@ -71,8 +123,18 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18 }}>🛑</span>
         <h2 style={{ margin: 0, color: '#fb923c', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Orchestration Paused — {effective ? `${filtered.length}/${pending.length}` : pending.length} Checkpoint{pending.length !== 1 ? 's' : ''} Require Your Attention
+          Orchestration Paused — {effective ? `${filtered.length}/${visiblePending.length}` : visiblePending.length} Checkpoint{visiblePending.length !== 1 ? 's' : ''} Require Your Attention
         </h2>
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setShowHidden(s => !s)}
+            style={{
+              marginLeft: 'auto',
+              background: 'transparent', border: '1px solid #4b2005',
+              color: '#fb923c', borderRadius: 4, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
+            }}
+          >{showHidden ? `Hide silenced (${hiddenCount})` : `Show hidden (${hiddenCount})`}</button>
+        )}
       </div>
 
       {kinds.length > 1 && (
@@ -114,14 +176,24 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
             No pending checkpoints match the current filter.
           </div>
         ) : filtered.map(cp => (
-          <CheckpointCard key={cp.id} checkpoint={cp} onResolved={onResolved} />
+          <CheckpointCard
+            key={cp.id}
+            checkpoint={cp}
+            onResolved={onResolved}
+            silenced={hidden.has(cp.id)}
+            onToggleSilence={() => setHidden(prev => {
+              const next = new Set(prev)
+              if (next.has(cp.id)) next.delete(cp.id); else next.add(cp.id)
+              return next
+            })}
+          />
         ))}
       </div>
     </div>
   )
 }
 
-function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint; onResolved: () => void }) {
+function CheckpointCard({ checkpoint: cp, onResolved, silenced, onToggleSilence }: { checkpoint: Checkpoint; onResolved: () => void; silenced?: boolean; onToggleSilence?: () => void }) {
   const [loading, setLoading] = useState(false)
   const [chosen,  setChosen]  = useState<string | null>(null)
   const [error,   setError]   = useState<string | null>(null)
@@ -181,6 +253,17 @@ function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <code style={{ fontSize: 10, color: '#374151' }}>{cp.id}</code>
           <span style={{ fontSize: 11, color: '#4b5563' }}>{age}</span>
+          {onToggleSilence && (
+            <button
+              onClick={onToggleSilence}
+              title={silenced ? 'Unhide this checkpoint' : 'Hide from view (client-side only; does not resolve)'}
+              style={{
+                background: 'transparent', border: '1px solid #374151',
+                color: silenced ? '#fb923c' : '#6b7280',
+                borderRadius: 4, padding: '1px 8px', fontSize: 10, cursor: 'pointer',
+              }}
+            >{silenced ? 'shown' : 'hide'}</button>
+          )}
         </div>
       </div>
 

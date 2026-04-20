@@ -25,16 +25,22 @@ interface Props {
 const MAX_RESULTS = 12
 const EVENT_HISTORY = 200
 
+let sessionQuery = ''
+
 export function SearchPalette({ open, onClose, agents, tasks, events, actions }: Props) {
-  const [q, setQ] = useState('')
+  const [q, setQState] = useState(() => sessionQuery)
   const [idx, setIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
+  function setQ(v: string) {
+    sessionQuery = v
+    setQState(v)
+  }
+
   useEffect(() => {
     if (!open) return
-    setQ('')
     setIdx(0)
-    const t = setTimeout(() => inputRef.current?.focus(), 10)
+    const t = setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 10)
     return () => clearTimeout(t)
   }, [open])
 

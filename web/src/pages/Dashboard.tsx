@@ -13,7 +13,7 @@ import { Glyph }            from '../components/Glyph'
 import { SettingsModal }    from '../components/SettingsModal'
 import { StartRunModal }    from '../components/StartRunModal'
 import { TaskBoard }        from '../components/TaskBoard'
-import { compactMode, dimTerminalAgents, liveSec, useSetting } from '../settings'
+import { compactMode, dimTerminalAgents, liveSec, useSetting, SETTING_KEYS, setBoolSetting } from '../settings'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
 
 interface Props {
@@ -85,10 +85,16 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
         setPaletteOpen(true)
         return
       }
+      if (e.key === 'c') {
+        e.preventDefault()
+        setBoolSetting(SETTING_KEYS.compact, !compact)
+        window.dispatchEvent(new Event('orchestrate-settings-changed'))
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [compact])
 
   const pending = approvals.filter(a => a.status === 'pending')
   const pendingCheckpoints = checkpoints.filter(c => c.status === 'pending')

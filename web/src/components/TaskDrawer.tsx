@@ -159,14 +159,34 @@ type Activity =
   | { kind: 'event';   ts: number; data: OrchestratorEvent }
   | { kind: 'message'; ts: number; data: AgentMessage }
 
+const ACTIVITY_LIMIT_KEY = 'orchestrate.taskdrawer.activitylimit'
+const ACTIVITY_LIMITS = [10, 20, 50] as const
+type ActivityLimit = typeof ACTIVITY_LIMITS[number]
+
+function loadActivityLimit(): ActivityLimit {
+  try {
+    const raw = Number(window.localStorage?.getItem(ACTIVITY_LIMIT_KEY))
+    if (ACTIVITY_LIMITS.includes(raw as ActivityLimit)) return raw as ActivityLimit
+  } catch { /* ignore */ }
+  return 20
+}
+
+function saveActivityLimit(v: ActivityLimit) {
+  try { window.localStorage?.setItem(ACTIVITY_LIMIT_KEY, String(v)) } catch { /* ignore */ }
+}
+
 function TaskActivity({ task, events, messages, onFilterFeed }: { task: Task; events: OrchestratorEvent[]; messages: AgentMessage[]; onFilterFeed?: (taskId: string) => void }) {
+  const [limit, setLimit] = useState<ActivityLimit>(() => loadActivityLimit())
+
   const taskEvents = events
     .filter(e => e.task_id === task.id)
     .map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))
   const taskMsgs = messages
     .filter(m => m.task_id === task.id)
     .map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m }))
-  const items: Activity[] = [...taskEvents, ...taskMsgs].sort((a, b) => b.ts - a.ts).slice(0, 20)
+  const allItems: Activity[] = [...taskEvents, ...taskMsgs].sort((a, b) => b.ts - a.ts)
+  const items = allItems.slice(0, limit)
+  const totalCount = allItems.length
 
   return (
     <div style={{ marginTop: 6 }}>
@@ -177,7 +197,25 @@ function TaskActivity({ task, events, messages, onFilterFeed }: { task: Task; ev
         <div style={{
           color: '#6b7280', fontSize: 10, fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>Activity ({items.length})</div>
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span>Activity ({items.length}{totalCount > items.length ? ` of ${totalCount}` : ''})</span>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {ACTIVITY_LIMITS.map(v => (
+              <button
+                key={v}
+                onClick={() => { setLimit(v); saveActivityLimit(v) }}
+                style={{
+                  background: limit === v ? '#334155' : 'transparent',
+                  color: limit === v ? '#e2e8f0' : '#6b7280',
+                  border: '1px solid #334155',
+                  borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >{v}</button>
+            ))}
+          </div>
+        </div>
         {items.length > 0 && onFilterFeed && (
           <button
             onClick={() => onFilterFeed(task.id)}
