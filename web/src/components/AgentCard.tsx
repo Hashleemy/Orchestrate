@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { CopyId } from './CopyId'
 import { toast } from './Toast'
 import { staleSec } from '../settings'
-import type { AgentPushResult, AgentStatus, DiffSummary } from '../types'
+import type { AgentPushResult, AgentStatus, DiffSummary, OrchestratorEvent } from '../types'
 
 const STATE_COLOR: Record<string, string> = {
   idle: '#6b7280',
@@ -48,7 +48,7 @@ function persistBool(key: string, value: boolean) {
   catch { /* ignore */ }
 }
 
-export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStatus; onRespawn?: () => void; recentAction?: boolean }) {
+export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilterAgent }: { agent: AgentStatus; onRespawn?: () => void; recentAction?: boolean; recentEvents?: OrchestratorEvent[]; onFilterAgent?: (agentId: string) => void }) {
   const [diff, setDiff]         = useState<DiffSummary | null>(null)
   const [diffErr, setDiffErr]   = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
@@ -172,6 +172,10 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
       <Row label="Task"   value={agent.task_id    || '—'} copyable={!!agent.task_id} />
       <Row label="Branch" value={agent.branch     || '—'} copyable={!!agent.branch} />
       <Row label="Action" value={agent.last_action || '—'} muted />
+
+      {recentEvents && recentEvents.length > 0 && (
+        <MiniTimeline events={recentEvents} agent={agent.agent} onFilterAgent={onFilterAgent} />
+      )}
 
       {(dead || stale) && (
         <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -398,6 +402,72 @@ function DiffPanel({ diff }: { diff: DiffSummary }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+const MINI_TYPE_GLYPH: Record<string, string> = {
+  task_started:       '▶',
+  task_claimed:       '◎',
+  file_edit:          '✎',
+  test_run:           '⟳',
+  test_pass:          '✓',
+  test_fail:          '✗',
+  commit:             '⎙',
+  push:               '⇪',
+  merged:             '⤵',
+  blocked:            '⛔',
+  unblocked:          '✓',
+  approval_requested: '⏳',
+  approval_received:  '✓',
+  message_sent:       '→',
+  message_received:   '←',
+  completed:          '●',
+  error:              '!',
+}
+
+function timeAgo(ts: string): string {
+  const secs = Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 1000))
+  if (secs < 60)    return `${secs}s`
+  if (secs < 3600)  return `${Math.floor(secs / 60)}m`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`
+  return `${Math.floor(secs / 86400)}d`
+}
+
+function MiniTimeline({ events, agent, onFilterAgent }: { events: OrchestratorEvent[]; agent: string; onFilterAgent?: (agent: string) => void }) {
+  const latest3 = events.slice(0, 3)
+  return (
+    <div style={{
+      marginTop: 8, paddingTop: 6,
+      borderTop: '1px dashed #374151',
+      display: 'flex', flexDirection: 'column', gap: 2,
+    }}>
+      {latest3.map((e, i) => {
+        const color = EVENT_TYPE_COLOR[e.type] ?? '#6b7280'
+        const glyph = MINI_TYPE_GLYPH[e.type] ?? '·'
+        return (
+          <div
+            key={`${e.timestamp}-${i}`}
+            title={`${e.type} — ${e.detail ?? ''}\nClick to filter feed to ${agent}`}
+            onClick={() => onFilterAgent?.(agent)}
+            style={{
+              display: 'flex', gap: 6, alignItems: 'center',
+              fontSize: 10, color: '#9ca3af',
+              cursor: onFilterAgent ? 'pointer' : 'default',
+              overflow: 'hidden', whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ color, fontWeight: 700, width: 10, textAlign: 'center' }}>{glyph}</span>
+            <span style={{ color: '#6b7280', minWidth: 20 }}>{timeAgo(e.timestamp)}</span>
+            <span style={{ color, textTransform: 'uppercase', fontSize: 9, fontWeight: 700, letterSpacing: 0.3 }}>
+              {e.type.replace(/_/g, ' ')}
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {e.detail ?? ''}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }

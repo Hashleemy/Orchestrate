@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import type { Task } from '../types'
+import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
 import { CopyId } from './CopyId'
 import { TaskDrawer } from './TaskDrawer'
@@ -12,6 +12,9 @@ const ALL_STATUSES = ['all', 'todo', 'ready', 'in_progress', 'blocked', 'awaitin
 interface Props {
   tasks:           Task[]
   onTaskCreated?:  () => void
+  events?:         OrchestratorEvent[]
+  messages?:       AgentMessage[]
+  onFilterFeedToTask?: (taskId: string) => void
 }
 
 const inputStyle: React.CSSProperties = {
@@ -91,7 +94,7 @@ function AddTaskForm({ onDone }: { onDone: () => void }) {
   )
 }
 
-export function TaskBoard({ tasks, onTaskCreated }: Props) {
+export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], onFilterFeedToTask }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortByPriority, setSortByPriority] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -247,7 +250,16 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
         </div>
       </div>
 
-      <TaskDrawer task={openTask} onClose={() => setOpenTask(null)} />
+      <TaskDrawer
+        task={openTask}
+        onClose={() => setOpenTask(null)}
+        events={events}
+        messages={messages}
+        onFilterFeed={taskId => {
+          onFilterFeedToTask?.(taskId)
+          setOpenTask(null)
+        }}
+      />
 
       {showForm && <AddTaskForm onDone={handleFormDone} />}
 

@@ -20,7 +20,23 @@ type FeedItem =
   | { kind: 'event';   ts: number; data: OrchestratorEvent }
   | { kind: 'message'; ts: number; data: AgentMessage }
 
-type TypeFilter = 'all' | 'events' | 'messages'
+type TypeFilter = 'all' | 'events' | 'messages' | 'starred'
+
+const STARRED_KEY = 'orchestrate.commfeed.starred'
+
+function loadStarred(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STARRED_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return new Set(arr)
+  } catch { /* ignore */ }
+  return new Set()
+}
+
+function saveStarred(s: Set<string>) {
+  try { localStorage.setItem(STARRED_KEY, JSON.stringify([...s])) } catch { /* ignore */ }
+}
 
 const EVENT_COLOR: Record<string, string> = {
   task_started:       '#3b82f6',
@@ -66,12 +82,29 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     if (onTaskFilterChange) onTaskFilterChange(id)
     else setInternalTaskFilter(id)
   }
+  const [starred, setStarred] = useState<Set<string>>(() => loadStarred())
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
+  function toggleStar(key: string) {
+    setStarred(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      saveStarred(next)
+      return next
+    })
+  }
+
+  const includeEvents   = typeFilter === 'all' || typeFilter === 'events'   || typeFilter === 'starred'
+  const includeMessages = typeFilter === 'all' || typeFilter === 'messages' || typeFilter === 'starred'
   let items: FeedItem[] = [
-    ...(typeFilter === 'messages' ? [] : events.map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))),
-    ...(typeFilter === 'events'   ? [] : messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m }))),
+    ...(includeEvents   ? events.map(e   => ({ kind: 'event'   as const, ts: new Date(e.timestamp).getTime(), data: e })) : []),
+    ...(includeMessages ? messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m })) : []),
   ]
+
+  if (typeFilter === 'starred') {
+    items = items.filter(it => starred.has(feedKey(it)))
+  }
 
   if (agentFilter) {
     items = items.filter(it => it.kind === 'event'
@@ -169,19 +202,26 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
           }}
         >Clear</button>
       )}
-      {(['all', 'events', 'messages'] as TypeFilter[]).map(opt => (
-        <button
-          key={opt}
-          onClick={() => setTypeFilter(opt)}
-          style={{
-            background: typeFilter === opt ? '#2563eb' : 'transparent',
-            color:      typeFilter === opt ? '#fff' : '#9ca3af',
-            border:     `1px solid ${typeFilter === opt ? '#2563eb' : '#374151'}`,
-            borderRadius: 12, padding: '2px 10px', fontSize: 11, fontWeight: 600,
-            textTransform: 'uppercase', letterSpacing: '0.03em', cursor: 'pointer',
-          }}
-        >{opt}</button>
-      ))}
+      {(['all', 'events', 'messages', 'starred'] as TypeFilter[]).map(opt => {
+        const starFilter = opt === 'starred'
+        const active = typeFilter === opt
+        const activeColor = starFilter ? '#eab308' : '#2563eb'
+        return (
+          <button
+            key={opt}
+            onClick={() => setTypeFilter(opt)}
+            style={{
+              background: active ? activeColor : 'transparent',
+              color:      active ? '#fff' : starFilter ? '#eab308' : '#9ca3af',
+              border:     `1px solid ${active ? activeColor : starFilter ? '#854d0e' : '#374151'}`,
+              borderRadius: 12, padding: '2px 10px', fontSize: 11, fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: '0.03em', cursor: 'pointer',
+            }}
+          >
+            {starFilter ? `★ starred${starred.size > 0 ? ` (${starred.size})` : ''}` : opt}
+          </button>
+        )
+      })}
       {agentFilter && (
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -254,9 +294,10 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
           {items.map((item) => {
             const k = feedKey(item)
             const flash = flashingKeys.has(k)
+            const isStarred = starred.has(k)
             return item.kind === 'event'
-              ? <EventRow key={k} event={item.data} flash={flash} onTaskClick={setTaskFilter} />
-              : <MessageRow key={k} message={item.data} flash={flash} onTaskClick={setTaskFilter} />
+              ? <EventRow key={k} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} />
+              : <MessageRow key={k} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} />
           })}
         </div>
         {!autoScroll && newSinceScroll > 0 && (
@@ -285,17 +326,18 @@ function feedKey(item: FeedItem): string {
   return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
 }
 
-function EventRow({ event, flash, onTaskClick }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void }) {
+function EventRow({ event, flash, onTaskClick, starred, onToggleStar }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
-    <div style={{
+    <div className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '4px 0 4px 6px', borderBottom: '1px solid #111827',
-      borderLeft: flash ? `3px solid ${color}` : '3px solid transparent',
-      background: flash ? `${color}10` : undefined,
+      borderLeft: flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
+      background: starred ? '#1a1408' : flash ? `${color}10` : undefined,
       transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
     }}>
+      <StarButton starred={starred} onToggle={onToggleStar} />
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>
         {formatTime(event.timestamp)}
       </span>
@@ -335,17 +377,18 @@ function renderEventDetail(event: OrchestratorEvent): ReactNode {
   )
 }
 
-function MessageRow({ message, flash, onTaskClick }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void }) {
+function MessageRow({ message, flash, onTaskClick, starred, onToggleStar }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
-    <div style={{
+    <div className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '5px 0 5px 6px', borderBottom: '1px solid #111827',
-      borderLeft: flash ? `3px solid ${color}` : '3px solid transparent',
-      background: flash ? `${color}10` : undefined,
+      borderLeft: flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
+      background: starred ? '#1a1408' : flash ? `${color}10` : undefined,
       transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
     }}>
+      <StarButton starred={starred} onToggle={onToggleStar} />
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>
         {formatTime(message.timestamp)}
       </span>
@@ -368,6 +411,24 @@ function MessageRow({ message, flash, onTaskClick }: { message: AgentMessage; fl
         {message.body}
       </span>
     </div>
+  )
+}
+
+function StarButton({ starred, onToggle }: { starred?: boolean; onToggle?: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle?.() }}
+      title={starred ? 'Unstar' : 'Star this item'}
+      className="commfeed-star"
+      style={{
+        background: 'none', border: 'none', cursor: onToggle ? 'pointer' : 'default',
+        color: starred ? '#eab308' : '#4b5563',
+        fontSize: 11, padding: '0 2px', lineHeight: 1,
+        opacity: starred ? 1 : 0,
+        transition: 'opacity 120ms ease, color 120ms ease',
+        alignSelf: 'center',
+      }}
+    >{starred ? '★' : '☆'}</button>
   )
 }
 

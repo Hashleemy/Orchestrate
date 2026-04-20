@@ -114,9 +114,13 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
 
   // Reviewer → worker edges from review requests (pending or recent)
   const reviewerEdges: Array<{ from: string; to: string }> = []
+  const reviewerOpenCount = new Map<string, number>()
   for (const r of reviewRequests) {
     if (positions.has(r.reviewer_id) && positions.has(r.worker_id)) {
       reviewerEdges.push({ from: r.reviewer_id, to: r.worker_id })
+    }
+    if (r.status === 'pending') {
+      reviewerOpenCount.set(r.reviewer_id, (reviewerOpenCount.get(r.reviewer_id) ?? 0) + 1)
     }
   }
 
@@ -195,6 +199,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
         stale={isStale(coord, now)}
         selected={selectedAgent === coord.agent}
         taskSelected={!!coord.task_id && selectedTask === coord.task_id}
+        reviewerOpenCount={reviewerOpenCount.get(coord.agent) ?? 0}
         onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined}
         onTaskClick={onSelectTask} />}
 
@@ -203,6 +208,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
           stale={isStale(w, now)}
           selected={selectedAgent === w.agent}
           taskSelected={!!w.task_id && selectedTask === w.task_id}
+          reviewerOpenCount={reviewerOpenCount.get(w.agent) ?? 0}
           onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined}
           onTaskClick={onSelectTask} />
       ))}
@@ -212,7 +218,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   )
 }
 
-function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskClick, taskSelected }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; taskSelected?: boolean; onClick?: () => void; onTaskClick?: (taskId: string) => void }) {
+function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskClick, taskSelected, reviewerOpenCount }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; taskSelected?: boolean; reviewerOpenCount?: number; onClick?: () => void; onTaskClick?: (taskId: string) => void }) {
   const role = roleOf(agent.agent)
   const fill = ROLE_COLORS[role] ?? ROLE_COLORS.default
   const dead = agent.alive === false && agent.state !== 'complete'
@@ -257,6 +263,15 @@ function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskC
       <text x={0} y={5} textAnchor="middle" fill="#fff" fontSize={big ? 12 : 11} fontWeight={700}>
         {tag}
       </text>
+      {reviewerOpenCount && reviewerOpenCount > 0 && (
+        <g transform={`translate(${baseR - 6}, ${-baseR + 4})`}>
+          <title>{`${reviewerOpenCount} open review request${reviewerOpenCount === 1 ? '' : 's'}`}</title>
+          <circle r={9} fill="#eab308" stroke="#0f172a" strokeWidth={2} />
+          <text x={0} y={3} textAnchor="middle" fill="#0f172a" fontSize={10} fontWeight={800}>
+            {reviewerOpenCount}
+          </text>
+        </g>
+      )}
       <text x={0} y={baseR + 16} textAnchor="middle" fill="#e5e7eb" fontSize={11} fontWeight={600}>
         {agent.agent}
       </text>

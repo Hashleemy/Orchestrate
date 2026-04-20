@@ -46,6 +46,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const [commTask,     setCommTask]     = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const agentQueryRef = useRef<HTMLInputElement | null>(null)
+  const graphRef      = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500)
@@ -54,13 +55,20 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== '/') return
       const target = e.target as HTMLElement | null
       const tag = target?.tagName?.toLowerCase()
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return
-      e.preventDefault()
-      agentQueryRef.current?.focus()
-      agentQueryRef.current?.select()
+      if (e.key === '/') {
+        e.preventDefault()
+        agentQueryRef.current?.focus()
+        agentQueryRef.current?.select()
+        return
+      }
+      if (e.key === 'g') {
+        e.preventDefault()
+        graphRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -76,6 +84,13 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
     if (!ACTIVE_EVENT_TYPES.has(e.type)) continue
     const age = now - new Date(e.timestamp).getTime()
     if (age < 3000) recentAction.set(e.agent, true)
+  }
+  const eventsByAgent = new Map<string, OrchestratorEvent[]>()
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    const list = eventsByAgent.get(e.agent) ?? []
+    if (list.length < 3) list.push(e)
+    eventsByAgent.set(e.agent, list)
   }
 
   return (
@@ -119,6 +134,16 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
               }}
             >Stop Run</button>
           )}
+          <button
+            onClick={() => exportRunSnapshot({ agents, events, messages, approvals, tasks, checkpoints, runs, verdicts, reviewRequests })}
+            title="Download JSON snapshot of the current run"
+            style={{
+              background: 'none', color: '#9ca3af',
+              border: '1px solid #374151', borderRadius: 6,
+              padding: '6px 11px', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >⤓ Export</button>
           <button
             onClick={() => setShowSettings(true)}
             title="Settings"
@@ -188,7 +213,13 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                             const dim = hasActiveAgent && terminal
                             return (
                               <div key={a.agent} style={{ opacity: dim ? 0.6 : 1, transition: 'opacity 200ms ease' }}>
-                                <AgentCard agent={a} onRespawn={onRespawn} recentAction={recentAction.get(a.agent)} />
+                                <AgentCard
+                                  agent={a}
+                                  onRespawn={onRespawn}
+                                  recentAction={recentAction.get(a.agent)}
+                                  recentEvents={eventsByAgent.get(a.agent)}
+                                  onFilterAgent={id => setCommAgent(prev => prev === id ? null : id)}
+                                />
                               </div>
                             )
                           })
@@ -209,7 +240,13 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       <Section title={`Tasks (${tasks.length})`} style={{ marginBottom: 20 }}>
         {tasks.length === 0
           ? <Empty glyph="tasks" text="No tasks loaded. Add examples/tasks.md to the target repo, or press N to add one from the UI." />
-          : <TaskBoard tasks={tasks} onTaskCreated={onTaskCreated} />
+          : <TaskBoard
+              tasks={tasks}
+              onTaskCreated={onTaskCreated}
+              events={events}
+              messages={messages}
+              onFilterFeedToTask={setCommTask}
+            />
         }
       </Section>
 
@@ -231,18 +268,20 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       </div>
 
       {/* Row 5: Orchestration graph (live) */}
-      <Section title={`Orchestration Graph (${agents.length})`} style={{ marginBottom: 20 }}>
-        <AgentGraph
-          agents={agents}
-          events={events}
-          messages={messages}
-          reviewRequests={reviewRequests}
-          selectedAgent={commAgent}
-          onSelectAgent={id => setCommAgent(prev => prev === id ? null : id)}
-          selectedTask={commTask}
-          onSelectTask={id => setCommTask(prev => prev === id ? null : id)}
-        />
-      </Section>
+      <div ref={graphRef} style={{ scrollMarginTop: 80 }}>
+        <Section title={`Orchestration Graph (${agents.length})`} style={{ marginBottom: 20 }}>
+          <AgentGraph
+            agents={agents}
+            events={events}
+            messages={messages}
+            reviewRequests={reviewRequests}
+            selectedAgent={commAgent}
+            onSelectAgent={id => setCommAgent(prev => prev === id ? null : id)}
+            selectedTask={commTask}
+            onSelectTask={id => setCommTask(prev => prev === id ? null : id)}
+          />
+        </Section>
+      </div>
 
       {/* Row 6: Run history */}
       <RunHistory runs={runs} />
@@ -286,6 +325,33 @@ function QuietHero({ onStart, hasTasks }: { onStart: () => void; hasTasks: boole
       </div>
     </div>
   )
+}
+
+function exportRunSnapshot(snapshot: {
+  agents: AgentStatus[]
+  events: OrchestratorEvent[]
+  messages: AgentMessage[]
+  approvals: Approval[]
+  tasks: Task[]
+  checkpoints: Checkpoint[]
+  runs: RunRecord[]
+  verdicts: ReviewVerdict[]
+  reviewRequests: ReviewRequest[]
+}) {
+  const body = {
+    exported_at: new Date().toISOString(),
+    ...snapshot,
+  }
+  const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `orchestrate-run-${stamp}.json`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 const kbdStyle: React.CSSProperties = {

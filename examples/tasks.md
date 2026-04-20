@@ -879,7 +879,7 @@ acceptance:
 risk: low
 
 ### TASK-145
-status: todo
+status: done
 priority: normal
 type: feature
 title: Communications feed — pin / star notable messages in current session
@@ -894,7 +894,7 @@ acceptance:
 risk: low
 
 ### TASK-146
-status: todo
+status: done
 priority: normal
 type: feature
 title: Agent card — show last 3 events inline mini-timeline
@@ -909,7 +909,7 @@ acceptance:
 risk: low
 
 ### TASK-147
-status: todo
+status: done
 priority: normal
 type: feature
 title: TaskDrawer — show recent events and messages for the selected task
@@ -940,7 +940,7 @@ acceptance:
 risk: low
 
 ### TASK-149
-status: todo
+status: done
 priority: normal
 type: feature
 title: Export run — download a JSON snapshot of the current run
@@ -955,7 +955,7 @@ acceptance:
 risk: low
 
 ### TASK-150
-status: todo
+status: done
 priority: low
 type: feature
 title: Keyboard shortcut — "g" jumps the viewport to the Orchestration Graph
@@ -987,7 +987,7 @@ acceptance:
 risk: low
 
 ### TASK-152
-status: todo
+status: done
 priority: normal
 type: feature
 title: AgentGraph — show review-request count badge on reviewer nodes
