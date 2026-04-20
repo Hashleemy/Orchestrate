@@ -4,8 +4,9 @@ type Shortcut = { keys: string[]; description: string }
 
 const SHORTCUTS: Shortcut[] = [
   { keys: ['N'],   description: 'Add a new task' },
+  { keys: ['/'],   description: 'Focus the agent filter input' },
   { keys: ['?'],   description: 'Show this cheat sheet' },
-  { keys: ['Esc'], description: 'Close open modal or form' },
+  { keys: ['Esc'], description: 'Close open modal, form, or clear filter' },
 ]
 
 export function ShortcutOverlay() {

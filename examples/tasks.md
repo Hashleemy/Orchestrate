@@ -528,7 +528,7 @@ acceptance:
 risk: low
 
 ### TASK-122
-status: todo
+status: done
 priority: normal
 type: feature
 title: Reflect pending approval count in window.title
@@ -543,7 +543,7 @@ acceptance:
 risk: low
 
 ### TASK-123
-status: todo
+status: done
 priority: high
 type: feature
 title: SSE auto-reconnect with exponential backoff
@@ -558,7 +558,7 @@ acceptance:
 risk: low
 
 ### TASK-124
-status: todo
+status: done
 priority: high
 type: feature
 title: React ErrorBoundary wrapping the Dashboard
@@ -574,7 +574,7 @@ acceptance:
 risk: low
 
 ### TASK-125
-status: todo
+status: done
 priority: normal
 type: feature
 title: Click agent in AgentGraph to filter CommFeed to that agent
@@ -591,7 +591,7 @@ acceptance:
 risk: low
 
 ### TASK-126
-status: todo
+status: done
 priority: normal
 type: feature
 title: CommFeed type filter (all / events / messages)
@@ -606,7 +606,7 @@ acceptance:
 risk: low
 
 ### TASK-127
-status: todo
+status: done
 priority: low
 type: feature
 title: Keyboard shortcut / to focus agent filter input
@@ -621,7 +621,7 @@ acceptance:
 risk: low
 
 ### TASK-128
-status: todo
+status: done
 priority: low
 type: feature
 title: Persist collapsed state of Dashboard sections in localStorage

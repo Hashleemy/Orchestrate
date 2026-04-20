@@ -39,9 +39,11 @@ interface Props {
   events:         OrchestratorEvent[]
   messages?:      AgentMessage[]
   reviewRequests?: ReviewRequest[]
+  onSelectAgent?: (agentId: string) => void
+  selectedAgent?: string | null
 }
 
-export function AgentGraph({ agents, events, messages = [], reviewRequests = [] }: Props) {
+export function AgentGraph({ agents, events, messages = [], reviewRequests = [], onSelectAgent, selectedAgent }: Props) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -178,10 +180,14 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [] 
         )
       })}
 
-      {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big />}
+      {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big
+        selected={selectedAgent === coord.agent}
+        onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined} />}
 
       {workers.map((w, i) => (
-        <AgentNode key={w.agent} agent={w} x={workerXs[i]} y={workerY} active={isActive(w.agent)} />
+        <AgentNode key={w.agent} agent={w} x={workerXs[i]} y={workerY} active={isActive(w.agent)}
+          selected={selectedAgent === w.agent}
+          onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined} />
       ))}
 
       <Legend x={20} y={H - 24} />
@@ -189,7 +195,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [] 
   )
 }
 
-function AgentNode({ agent, x, y, active, big }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean }) {
+function AgentNode({ agent, x, y, active, big, selected, onClick }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; onClick?: () => void }) {
   const role = roleOf(agent.agent)
   const fill = ROLE_COLORS[role] ?? ROLE_COLORS.default
   const dead = agent.alive === false && agent.state !== 'complete'
@@ -198,7 +204,15 @@ function AgentNode({ agent, x, y, active, big }: { agent: AgentStatus; x: number
   const tag = role.substring(0, 4).toUpperCase()
 
   return (
-    <g transform={`translate(${x},${y})`} opacity={dead ? 0.55 : 1}>
+    <g
+      transform={`translate(${x},${y})`}
+      opacity={dead ? 0.55 : 1}
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : undefined}
+    >
+      {selected && (
+        <circle r={baseR + 10} fill="none" stroke="#fbbf24" strokeWidth={2} strokeDasharray="4 3" opacity={0.9} />
+      )}
       {active && (
         <>
           <circle r={baseR + 6} fill="none" stroke={fill} strokeWidth={2} opacity={0.7}>

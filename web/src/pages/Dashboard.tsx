@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { AgentCard }        from '../components/AgentCard'
 import { AgentGraph }       from '../components/AgentGraph'
@@ -36,13 +36,30 @@ interface Props {
 }
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
-  const [showModal,   setShowModal]   = useState(false)
-  const [agentQuery,  setAgentQuery]  = useState('')
-  const [stateFilter, setStateFilter] = useState<string | null>(null)
+  const [showModal,    setShowModal]    = useState(false)
+  const [agentQuery,   setAgentQuery]   = useState('')
+  const [stateFilter,  setStateFilter]  = useState<string | null>(null)
+  const [commAgent,    setCommAgent]    = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
+  const agentQueryRef = useRef<HTMLInputElement | null>(null)
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/') return
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return
+      e.preventDefault()
+      agentQueryRef.current?.focus()
+      agentQueryRef.current?.select()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const pending = approvals.filter(a => a.status === 'pending')
@@ -144,6 +161,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                       active={!!active}
                       matchCount={filtered.length}
                       total={agents.length}
+                      inputRef={agentQueryRef}
                     />
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                       {filtered.length === 0
@@ -172,7 +190,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
       {/* Row 3: Comms feed (full width) */}
       <Section title={`Communications (${events.length + messages.length})`} style={{ marginBottom: 20 }}>
-        <CommFeed events={events} messages={messages} />
+        <CommFeed events={events} messages={messages} agentFilter={commAgent} onClearAgentFilter={() => setCommAgent(null)} />
       </Section>
 
       {/* Row 4: Reviews */}
@@ -182,7 +200,14 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
       {/* Row 5: Orchestration graph (live) */}
       <Section title={`Orchestration Graph (${agents.length})`} style={{ marginBottom: 20 }}>
-        <AgentGraph agents={agents} events={events} messages={messages} reviewRequests={reviewRequests} />
+        <AgentGraph
+          agents={agents}
+          events={events}
+          messages={messages}
+          reviewRequests={reviewRequests}
+          selectedAgent={commAgent}
+          onSelectAgent={id => setCommAgent(prev => prev === id ? null : id)}
+        />
       </Section>
 
       {/* Row 6: Run history */}
@@ -235,11 +260,35 @@ const kbdStyle: React.CSSProperties = {
   padding: '1px 5px', background: '#0f172a',
 }
 
+function sectionKey(title: string): string {
+  return 'orchestrate.section.' + title.replace(/\s*\(.*$/, '').trim().toLowerCase().replace(/\s+/g, '_')
+}
+
 function Section({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
+  const key = sectionKey(title)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem(key) === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(key, collapsed ? '1' : '0') } catch { /* ignore */ }
+  }, [key, collapsed])
+
   return (
     <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 10, padding: 16, ...style }}>
-      <h2 style={{ margin: '0 0 12px', color: '#9ca3af', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
-      {children}
+      <h2
+        onClick={() => setCollapsed(v => !v)}
+        style={{
+          margin: collapsed ? 0 : '0 0 12px',
+          color: '#9ca3af', fontSize: 12, fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+          display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ display: 'inline-block', width: 10, transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 120ms ease' }}>▾</span>
+        {title}
+      </h2>
+      {!collapsed && children}
     </div>
   )
 }
@@ -286,7 +335,7 @@ const STATE_CHIP_COLORS: Record<string, string> = {
 }
 
 function AgentFilterBar({
-  query, onQueryChange, stateFilter, onStateFilterChange, stateCounts, onClear, active, matchCount, total,
+  query, onQueryChange, stateFilter, onStateFilterChange, stateCounts, onClear, active, matchCount, total, inputRef,
 }: {
   query: string
   onQueryChange: (s: string) => void
@@ -297,13 +346,21 @@ function AgentFilterBar({
   active: boolean
   matchCount: number
   total: number
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
       <input
+        ref={inputRef}
         value={query}
         onChange={e => onQueryChange(e.target.value)}
-        placeholder="Filter by id or branch…"
+        onKeyDown={e => {
+          if (e.key === 'Escape') {
+            onQueryChange('')
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+        placeholder="Filter by id or branch…   (press / to focus)"
         style={{
           background: '#0f172a', border: '1px solid #334155',
           color: '#e2e8f0', borderRadius: 4,

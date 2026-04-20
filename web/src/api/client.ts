@@ -64,18 +64,42 @@ export type SSEPayload =
   | { type: 'reviews';     data: ReviewsPayload }
 
 export function openStream(onMessage: (payload: SSEPayload) => void): () => void {
-  const es = new EventSource('/api/stream')
+  let es: EventSource | null = null
+  let retryTimer: number | null = null
+  let backoff = 1000
+  let cancelled = false
 
-  const handle = (e: MessageEvent) => {
-    try { onMessage(JSON.parse(e.data) as SSEPayload) } catch { /* skip malformed */ }
+  function connect() {
+    if (cancelled) return
+    es = new EventSource('/api/stream')
+
+    const handle = (e: MessageEvent) => {
+      backoff = 1000
+      try { onMessage(JSON.parse(e.data) as SSEPayload) } catch { /* skip malformed */ }
+    }
+
+    es.addEventListener('agents',    handle)
+    es.addEventListener('events',    handle)
+    es.addEventListener('approvals', handle)
+    es.addEventListener('tasks',     handle)
+    es.addEventListener('messages',  handle)
+    es.addEventListener('reviews',   handle)
+
+    es.onerror = () => {
+      if (cancelled) return
+      es?.close()
+      es = null
+      const wait = backoff
+      backoff = Math.min(backoff * 2, 30000)
+      retryTimer = window.setTimeout(connect, wait)
+    }
   }
 
-  es.addEventListener('agents',    handle)
-  es.addEventListener('events',    handle)
-  es.addEventListener('approvals', handle)
-  es.addEventListener('tasks',     handle)
-  es.addEventListener('messages',  handle)
-  es.addEventListener('reviews',   handle)
+  connect()
 
-  return () => es.close()
+  return () => {
+    cancelled = true
+    if (retryTimer !== null) window.clearTimeout(retryTimer)
+    es?.close()
+  }
 }

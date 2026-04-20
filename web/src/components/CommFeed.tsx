@@ -6,11 +6,15 @@ interface Props {
   events:   OrchestratorEvent[]
   messages: AgentMessage[]
   maxItems?: number
+  agentFilter?: string | null
+  onClearAgentFilter?: () => void
 }
 
 type FeedItem =
   | { kind: 'event';   ts: number; data: OrchestratorEvent }
   | { kind: 'message'; ts: number; data: AgentMessage }
+
+type TypeFilter = 'all' | 'events' | 'messages'
 
 const EVENT_COLOR: Record<string, string> = {
   task_started:       '#3b82f6',
@@ -45,13 +49,21 @@ const MSG_TYPE_COLOR: Record<string, string> = {
   block:     '#f97316',
 }
 
-export function CommFeed({ events, messages, maxItems = 120 }: Props) {
-  const items: FeedItem[] = [
-    ...events.map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e })),
-    ...messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m })),
+export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter }: Props) {
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+
+  let items: FeedItem[] = [
+    ...(typeFilter === 'messages' ? [] : events.map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))),
+    ...(typeFilter === 'events'   ? [] : messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m }))),
   ]
-  .sort((a, b) => b.ts - a.ts)
-  .slice(0, maxItems)
+
+  if (agentFilter) {
+    items = items.filter(it => it.kind === 'event'
+      ? it.data.agent === agentFilter
+      : it.data.from === agentFilter || it.data.to === agentFilter)
+  }
+
+  items = items.sort((a, b) => b.ts - a.ts).slice(0, maxItems)
 
   const mounted = useRef(false)
   const knownKeys = useRef<Set<string>>(new Set())
@@ -87,25 +99,67 @@ export function CommFeed({ events, messages, maxItems = 120 }: Props) {
     return () => window.clearTimeout(t)
   }, [items])
 
+  const filterBar = (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+      {(['all', 'events', 'messages'] as TypeFilter[]).map(opt => (
+        <button
+          key={opt}
+          onClick={() => setTypeFilter(opt)}
+          style={{
+            background: typeFilter === opt ? '#2563eb' : 'transparent',
+            color:      typeFilter === opt ? '#fff' : '#9ca3af',
+            border:     `1px solid ${typeFilter === opt ? '#2563eb' : '#374151'}`,
+            borderRadius: 12, padding: '2px 10px', fontSize: 11, fontWeight: 600,
+            textTransform: 'uppercase', letterSpacing: '0.03em', cursor: 'pointer',
+          }}
+        >{opt}</button>
+      ))}
+      {agentFilter && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: '#1e3a8a', color: '#dbeafe',
+          border: '1px solid #3b82f6', borderRadius: 12,
+          padding: '2px 4px 2px 10px', fontSize: 11, fontWeight: 600,
+        }}>
+          {agentFilter}
+          {onClearAgentFilter && (
+            <button onClick={onClearAgentFilter} style={{
+              background: 'none', border: 'none', color: '#dbeafe',
+              cursor: 'pointer', fontSize: 14, padding: '0 4px', lineHeight: 1,
+            }} title="Clear agent filter">×</button>
+          )}
+        </span>
+      )}
+    </div>
+  )
+
   if (items.length === 0) {
     return (
-      <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
-        <div style={{ marginBottom: 8 }}><Glyph name="comms" size={22} /></div>
-        No communications yet. Events and inter-agent messages will stream here live.
-      </div>
+      <>
+        {filterBar}
+        <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
+          <div style={{ marginBottom: 8 }}><Glyph name="comms" size={22} /></div>
+          {agentFilter
+            ? `No communications for ${agentFilter} yet.`
+            : 'No communications yet. Events and inter-agent messages will stream here live.'}
+        </div>
+      </>
     )
   }
 
   return (
-    <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {items.map((item) => {
-        const k = feedKey(item)
-        const flash = flashingKeys.has(k)
-        return item.kind === 'event'
-          ? <EventRow key={k} event={item.data} flash={flash} />
-          : <MessageRow key={k} message={item.data} flash={flash} />
-      })}
-    </div>
+    <>
+      {filterBar}
+      <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {items.map((item) => {
+          const k = feedKey(item)
+          const flash = flashingKeys.has(k)
+          return item.kind === 'event'
+            ? <EventRow key={k} event={item.data} flash={flash} />
+            : <MessageRow key={k} message={item.data} flash={flash} />
+        })}
+      </div>
+    </>
   )
 }
 

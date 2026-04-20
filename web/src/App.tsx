@@ -3,6 +3,7 @@ import { api, openStream } from './api/client'
 import { Dashboard } from './pages/Dashboard'
 import { ShortcutOverlay } from './components/Shortcuts'
 import { ToastHost } from './components/Toast'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from './types'
 
 export function App() {
@@ -65,6 +66,11 @@ export function App() {
     })
   }, [])
 
+  useEffect(() => {
+    const pending = approvals.filter(a => a.status === 'pending').length
+    document.title = pending > 0 ? `(${pending}) Local Agent Orchestrator` : 'Local Agent Orchestrator'
+  }, [approvals])
+
   function handleRespawn() {
     api.agents().then(setAgents).catch(() => {})
   }
@@ -112,7 +118,7 @@ export function App() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
     <ToastHost />
     <ShortcutOverlay />
     <Dashboard
@@ -136,6 +142,6 @@ export function App() {
       onStartRun={handleStartRun}
       onStopRun={handleStopRun}
     />
-    </>
+    </ErrorBoundary>
   )
 }
