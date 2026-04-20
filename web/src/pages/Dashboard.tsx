@@ -129,7 +129,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
       {/* Row 5: Orchestration graph (live) */}
       <Section title={`Orchestration Graph (${agents.length})`} style={{ marginBottom: 20 }}>
-        <AgentGraph agents={agents} events={events} />
+        <AgentGraph agents={agents} events={events} messages={messages} reviewRequests={reviewRequests} />
       </Section>
 
       {/* Row 6: Run history */}

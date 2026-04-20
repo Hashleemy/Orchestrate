@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AgentStatus, OrchestratorEvent } from '../types'
+import type { AgentMessage, AgentStatus, OrchestratorEvent, ReviewRequest } from '../types'
 
 const ROLE_COLORS: Record<string, string> = {
   coordinator: '#a855f7',
@@ -35,11 +35,13 @@ function roleOf(agentId: string): string {
 }
 
 interface Props {
-  agents: AgentStatus[]
-  events: OrchestratorEvent[]
+  agents:         AgentStatus[]
+  events:         OrchestratorEvent[]
+  messages?:      AgentMessage[]
+  reviewRequests?: ReviewRequest[]
 }
 
-export function AgentGraph({ agents, events }: Props) {
+export function AgentGraph({ agents, events, messages = [], reviewRequests = [] }: Props) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -83,6 +85,28 @@ export function AgentGraph({ agents, events }: Props) {
     return last !== undefined && (now - last) < ACTIVE_WINDOW_MS
   }
 
+  // Position map for all agents (coordinator + workers)
+  const positions = new Map<string, { x: number; y: number }>()
+  if (coord) positions.set(coord.agent, { x: coordX, y: coordY })
+  workers.forEach((w, i) => positions.set(w.agent, { x: workerXs[i], y: workerY }))
+
+  // Recent messages (for flow pulses) — last 2 seconds, sender+receiver both on graph
+  const MSG_WINDOW_MS = 2000
+  const recentMessages = messages.filter(m => {
+    const age = now - new Date(m.timestamp).getTime()
+    return age >= 0 && age < MSG_WINDOW_MS
+      && positions.has(m.from) && positions.has(m.to)
+      && m.from !== m.to
+  })
+
+  // Reviewer → worker edges from review requests (pending or recent)
+  const reviewerEdges: Array<{ from: string; to: string }> = []
+  for (const r of reviewRequests) {
+    if (positions.has(r.reviewer_id) && positions.has(r.worker_id)) {
+      reviewerEdges.push({ from: r.reviewer_id, to: r.worker_id })
+    }
+  }
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 420, display: 'block' }}>
       <defs>
@@ -117,6 +141,42 @@ export function AgentGraph({ agents, events }: Props) {
           x1={workerXs[i - 1]} y1={workerY} x2={workerXs[i]} y2={workerY}
           stroke="#334155" strokeWidth={1} strokeDasharray="3 4" opacity={0.3} />
       ))}
+
+      {/* Reviewer → worker edges (yellow dashed) */}
+      {reviewerEdges.map(({ from, to }, i) => {
+        const a = positions.get(from)!
+        const b = positions.get(to)!
+        return (
+          <line
+            key={`review-${from}-${to}-${i}`}
+            x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+            stroke="#eab308" strokeWidth={1.5} strokeDasharray="3 5" opacity={0.55}
+          >
+            <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="1.1s" repeatCount="indefinite" />
+          </line>
+        )
+      })}
+
+      {/* Message flow pulses */}
+      {recentMessages.map((m, i) => {
+        const a = positions.get(m.from)!
+        const b = positions.get(m.to)!
+        const pulseColor = m.type === 'block' ? '#ef4444'
+          : m.type === 'broadcast' ? '#a78bfa'
+          : '#60a5fa'
+        const ageMs = now - new Date(m.timestamp).getTime()
+        const progress = Math.min(ageMs / MSG_WINDOW_MS, 1)
+        const x = a.x + (b.x - a.x) * progress
+        const y = a.y + (b.y - a.y) * progress
+        const opacity = 1 - progress
+        return (
+          <g key={`msg-${m.timestamp}-${i}`}>
+            <circle cx={x} cy={y} r={6} fill={pulseColor} opacity={opacity}
+              style={{ filter: `drop-shadow(0 0 8px ${pulseColor})` }} />
+            <circle cx={x} cy={y} r={3} fill="#fff" opacity={opacity * 0.8} />
+          </g>
+        )
+      })}
 
       {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big />}
 

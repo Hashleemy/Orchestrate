@@ -185,3 +185,129 @@ acceptance:
   - go test ./... passes
 risk: low
 major_change: no
+
+### TASK-100
+status: done
+priority: high
+type: feature
+title: Animate message flow along graph edges when agents communicate
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentGraph.tsx
+acceptance:
+  - Recent message_sent/message_received events pulse a dot along the edge from sender to receiver
+  - Pulse fades within 2 seconds of the event
+  - No pulse for unrelated agents
+risk: low
+
+### TASK-101
+status: done
+priority: normal
+type: feature
+title: Draw reviewer-to-worker edges in the orchestration graph
+owner: unassigned
+depends_on: [TASK-100]
+files:
+  - web/src/components/AgentGraph.tsx
+acceptance:
+  - Reviewer agents (role = reviewer) draw a dotted edge to the worker they are reviewing
+  - Worker target derived from review requests payload
+  - Edge styled differently from coordinator edges (yellow dashes)
+risk: low
+
+### TASK-102
+status: todo
+priority: high
+type: feature
+title: Toast notifications for push/merge/respawn actions
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/Toast.tsx
+  - web/src/components/AgentCard.tsx
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Push, merge, respawn results surface a toast (success/warning/error)
+  - Toasts auto-dismiss after 4s or on click
+  - Multiple toasts stack vertically in top-right corner
+risk: low
+
+### TASK-103
+status: todo
+priority: normal
+type: feature
+title: Agent filter bar — search by ID/state/branch
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Input above agent cards filters by substring in agent ID or branch
+  - State pills clickable to filter by state (coding, blocked, etc)
+  - "Clear filters" button when any filter is active
+risk: low
+
+### TASK-104
+status: todo
+priority: normal
+type: feature
+title: /api/health endpoint returning version, uptime, go version, agent count
+owner: unassigned
+depends_on: []
+files:
+  - internal/api/handlers.go
+  - internal/api/router.go
+acceptance:
+  - GET /api/health returns {version, uptime_sec, go_version, agents_alive, started_at}
+  - Reports uptime from server start, not request time
+  - Smoke test: curl returns valid JSON
+risk: low
+
+### TASK-105
+status: todo
+priority: low
+type: feature
+title: Export run summary as Markdown download
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/RunHistory.tsx
+acceptance:
+  - Each run in history has "Export" button
+  - Generates markdown summary (tasks done, duration, workers, event count)
+  - Triggers file download via Blob + URL.createObjectURL
+risk: low
+
+### TASK-106
+status: todo
+priority: low
+type: polish
+title: Better empty-state copy across the dashboard
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/components/ApprovalQueue.tsx
+  - web/src/components/CheckpointPanel.tsx
+  - web/src/components/ReviewPanel.tsx
+acceptance:
+  - Each section has a helpful empty state explaining what shows up here
+  - Includes a small icon where appropriate
+  - No empty panels with just a border
+risk: low
+
+### TASK-107
+status: todo
+priority: low
+type: feature
+title: Keyboard shortcut N to open Add Task form
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskBoard.tsx
+acceptance:
+  - Pressing N (when not typing in an input) opens the Add Task form and focuses the title
+  - Escape closes the form
+  - Shortcut visible in a small hint near the button
+risk: low
