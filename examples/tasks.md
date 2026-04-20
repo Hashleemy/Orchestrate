@@ -773,5 +773,110 @@ acceptance:
   - Non-commit events render as before
 risk: low
 
+### TASK-138
+status: todo
+priority: normal
+type: feature
+title: Pause/Resume individual agent from AgentCard
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+  - web/src/api/client.ts
+acceptance:
+  - AgentCard shows "Pause" button when agent state is not blocked/stopped/complete
+  - Shows "Resume" button when state is blocked by a manual pause flag
+  - (UI-only acceptance: button is disabled with tooltip "backend not wired yet" if endpoint absent)
+risk: low
+
+### TASK-139
+status: todo
+priority: normal
+type: feature
+title: Task board grouped view — group by status as columns (Kanban-lite)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskBoard.tsx
+acceptance:
+  - Toggle button "List / Board" switches between table and column layout
+  - Board view renders a column per status with task cards
+  - Empty columns still render with a subtle placeholder
+risk: low
+
+### TASK-140
+status: todo
+priority: normal
+type: feature
+title: CommFeed auto-scroll toggle with "jump to newest" on new items
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Checkbox "auto-scroll to newest"; if user scrolls up, auto-scroll pauses
+  - A floating "Jump to newest (N)" button appears when paused with new items
+  - Clicking it resumes auto-scroll
+risk: low
+
+### TASK-141
+status: todo
+priority: low
+type: feature
+title: Dim completed/stopped agents in grid when run is active
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/components/AgentCard.tsx
+acceptance:
+  - When there is at least one active (non-complete/non-stopped) agent, complete/stopped ones render at 60% opacity
+  - When all agents are terminal, they render at full opacity
+risk: low
+
+### TASK-142
+status: todo
+priority: normal
+type: feature
+title: Per-task filter on CommFeed (click task_id chip → filter)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Clicking a task_id code in an event/message row filters the feed to that task
+  - Chip above feed shows active task filter with × to clear
+  - Works alongside the agent filter (both applied)
+risk: low
+
+### TASK-143
+status: todo
+priority: low
+type: feature
+title: Orchestration graph — show active task_id label under each node
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentGraph.tsx
+acceptance:
+  - If agent.task_id is set, render it in a small chip below the agent label
+  - Chip is clickable and sets the CommFeed task filter (uses TASK-142 hooks)
+risk: low
+
+### TASK-144
+status: todo
+priority: normal
+type: feature
+title: Review panel — show verdict history per worker (expandable)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/ReviewPanel.tsx
+acceptance:
+  - Each worker row has an expander showing past verdicts from this run
+  - Verdicts show timestamp, outcome, and summary
+  - Collapsed by default
+risk: low
+
 
 
