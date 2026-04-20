@@ -64,6 +64,29 @@ export function ToastHost() {
     return () => { listeners.delete(listener) }
   }, [])
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const el = document.activeElement as HTMLElement | null
+      if (el) {
+        const tag = el.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return
+      }
+      setItems(prev => {
+        for (let i = prev.length - 1; i >= 0; i--) {
+          const it = prev[i]
+          if (!it.leaving) {
+            setTimeout(() => beginLeave(it.id), 0)
+            break
+          }
+        }
+        return prev
+      })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey) }
+  }, [])
+
   function beginLeave(id: number) {
     setItems(prev => prev.map(x => x.id === id ? { ...x, leaving: true } : x))
     setTimeout(() => {

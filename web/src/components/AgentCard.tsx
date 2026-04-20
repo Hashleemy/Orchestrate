@@ -245,6 +245,18 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
             fontSize: 11, cursor: 'pointer',
           }}
         >{showLogs ? 'Hide logs' : 'Logs ▾'}</button>
+        <a
+          href={`/api/agents/${encodeURIComponent(agent.agent)}/logs`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open raw log stream in new tab"
+          style={{
+            background: 'none', border: '1px solid #374151',
+            color: '#9ca3af', borderRadius: 4,
+            padding: '2px 6px', fontSize: 11,
+            textDecoration: 'none', lineHeight: 1.4,
+          }}
+        >↗</a>
       </div>
 
       {expanded && (

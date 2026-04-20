@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Glyph } from './Glyph'
 import { CopyId } from './CopyId'
+import { toast } from './Toast'
 import type { AgentMessage, OrchestratorEvent } from '../types'
 
 const SHA_RE = /\b([a-f0-9]{7,40})\b/i
@@ -98,6 +99,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   }
   const [starred, setStarred] = useState<Set<string>>(() => loadStarred())
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const [cursor, setCursor] = useState<number>(-1)
   const [navHovered, setNavHovered] = useState(false)
   const rowRefs = useRef<Array<HTMLDivElement | null>>([])
@@ -211,6 +213,15 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (isTypingTarget(e.target)) return
+      if (e.key === '/') {
+        if (searchInputRef.current) {
+          e.preventDefault()
+          e.stopPropagation()
+          searchInputRef.current.focus()
+          searchInputRef.current.select()
+        }
+        return
+      }
       if (itemCount === 0) return
       if (e.key === 'j') {
         e.preventDefault()
@@ -243,9 +254,16 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   const filterBar = (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
       <input
+        ref={searchInputRef}
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Search communications…"
+        onKeyDown={e => {
+          if (e.key === 'Escape') {
+            setSearch('')
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+        placeholder="Search communications…  (/ to focus)"
         style={{
           background: '#0f172a', border: '1px solid #334155',
           color: '#e2e8f0', borderRadius: 4,
@@ -424,6 +442,7 @@ function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, 
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {renderEventDetail(event)}
       </span>
+      <CopyRowButton payload={event} label="event" />
     </div>
   )
 }
@@ -479,7 +498,36 @@ function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, select
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {message.body}
       </span>
+      <CopyRowButton payload={message} label="message" />
     </div>
+  )
+}
+
+function CopyRowButton({ payload, label }: { payload: unknown; label: string }) {
+  async function doCopy(e: { stopPropagation: () => void }) {
+    e.stopPropagation()
+    try {
+      const json = JSON.stringify(payload, null, 2)
+      await navigator.clipboard.writeText(json)
+      toast('success', `Copied ${label} JSON`)
+    } catch {
+      toast('error', 'Copy failed', 'Clipboard API unavailable')
+    }
+  }
+  return (
+    <button
+      onClick={doCopy}
+      title="Copy row as JSON"
+      className="commfeed-copy"
+      style={{
+        background: 'transparent', border: '1px solid #334155',
+        color: '#6b7280', cursor: 'pointer',
+        fontSize: 10, padding: '0 6px', lineHeight: 1.4,
+        borderRadius: 3, opacity: 0,
+        transition: 'opacity 120ms ease, color 120ms ease, background 120ms ease',
+        marginRight: 4, alignSelf: 'center',
+      }}
+    >copy</button>
   )
 }
 

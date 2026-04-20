@@ -35,3 +35,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .commfeed-star:hover {
   color: #facc15 !important;
 }
+.commfeed-row:hover .commfeed-copy {
+  opacity: 1 !important;
+}
+.commfeed-copy:hover {
+  color: #60a5fa !important;
+  background: #0b1220 !important;
+}

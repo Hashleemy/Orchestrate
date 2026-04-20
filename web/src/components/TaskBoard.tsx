@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
@@ -100,6 +100,9 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [openTask, setOpenTask] = useState<Task | null>(null)
+  const [cursor, setCursor] = useState<number>(-1)
+  const [hovered, setHovered] = useState(false)
+  const rowRefs = useRef<Array<HTMLElement | null>>([])
   const [view, setView] = useState<'list' | 'board'>(() => {
     try { return (localStorage.getItem('orchestrate.taskboard.view') as 'list' | 'board') ?? 'list' }
     catch { return 'list' }
@@ -141,6 +144,46 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
     ? [...filtered].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
     : filtered
 
+  const taskCount = sorted.length
+  useEffect(() => {
+    if (cursor >= taskCount) setCursor(taskCount > 0 ? taskCount - 1 : -1)
+  }, [taskCount, cursor])
+
+  useEffect(() => {
+    if (!hovered) return
+    function isTypingTarget(t: EventTarget | null): boolean {
+      if (!(t instanceof HTMLElement)) return false
+      const tag = t.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(e.target)) return
+      if (taskCount === 0) return
+      if (e.key === 'j') {
+        e.preventDefault()
+        setCursor(c => Math.min(taskCount - 1, c < 0 ? 0 : c + 1))
+      } else if (e.key === 'k') {
+        e.preventDefault()
+        setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
+      } else if (e.key === 'Enter' && cursor >= 0 && cursor < taskCount) {
+        e.preventDefault()
+        setOpenTask(sorted[cursor])
+      } else if (e.key === 'Escape' && cursor >= 0) {
+        e.preventDefault()
+        setCursor(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [hovered, taskCount, cursor, sorted])
+
+  useEffect(() => {
+    if (cursor < 0) return
+    const el = rowRefs.current[cursor]
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [cursor])
+
   const counts = ALL_STATUSES.reduce<Record<string, number>>((acc, s) => {
     acc[s] = s === 'all' ? tasks.length : tasks.filter(t => t.status === s).length
     return acc
@@ -152,7 +195,10 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
   }
 
   return (
-    <div>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setCursor(-1) }}
+    >
       {/* Search */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
         <input
@@ -277,15 +323,22 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
               </tr>
             </thead>
             <tbody>
-              {sorted.map(t => (
+              {sorted.map((t, i) => (
                 <tr
                   key={t.id}
+                  ref={(el) => { rowRefs.current[i] = el }}
                   onClick={(e) => {
                     const target = e.target as HTMLElement
                     if (target.closest('button')) return
+                    setCursor(i)
                     setOpenTask(t)
                   }}
-                  style={{ borderBottom: '1px solid #1f2937', cursor: 'pointer' }}
+                  style={{
+                    borderBottom: '1px solid #1f2937',
+                    cursor: 'pointer',
+                    background: cursor === i ? '#082f49' : undefined,
+                    boxShadow: cursor === i ? 'inset 3px 0 0 #38bdf8' : undefined,
+                  }}
                 >
                   <td style={td()}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
                   <td style={td()}>

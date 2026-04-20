@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Glyph } from './Glyph'
 import { toast } from './Toast'
@@ -62,8 +62,15 @@ function MergeResultBanner({ result }: { result: AgentMergeResult }) {
   )
 }
 
-function VerdictCard({ v }: { v: ReviewVerdict }) {
-  const [expanded,    setExpanded]    = useState(false)
+function VerdictCard({ v, selected, onSelect, cardRef, mergeRef, expanded, onToggleExpand }: {
+  v: ReviewVerdict
+  selected?: boolean
+  onSelect?: () => void
+  cardRef?: (el: HTMLDivElement | null) => void
+  mergeRef?: (fn: (() => void) | null) => void
+  expanded: boolean
+  onToggleExpand: () => void
+}) {
   const [merging,     setMerging]     = useState(false)
   const [mergeResult, setMergeResult] = useState<AgentMergeResult | null>(null)
   const date = (() => {
@@ -94,10 +101,24 @@ function VerdictCard({ v }: { v: ReviewVerdict }) {
     }
   }
 
+  useEffect(() => {
+    if (!mergeRef) return
+    mergeRef(canMerge && mergeResult?.status !== 'merged' ? handleMerge : null)
+    return () => mergeRef(null)
+  }, [canMerge, mergeResult, merging, mergeRef])
+
   return (
-    <div style={{ border: '1px solid #374151', borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+    <div
+      ref={cardRef}
+      onClick={onSelect}
+      style={{
+        border: `1px solid ${selected ? '#38bdf8' : '#374151'}`,
+        boxShadow: selected ? 'inset 0 0 0 1px #0284c7' : undefined,
+        borderRadius: 8, overflow: 'hidden', marginBottom: 8,
+      }}
+    >
       <button
-        onClick={() => setExpanded(e => !e)}
+        onClick={onToggleExpand}
         style={{
           width: '100%', background: '#111827', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', textAlign: 'left',
@@ -188,12 +209,20 @@ function groupVerdictsByWorker(verdicts: ReviewVerdict[]): VerdictGroup[] {
   return groups
 }
 
-function WorkerVerdictGroup({ group }: { group: VerdictGroup }) {
+function WorkerVerdictGroup({ group, selected, onSelect, cardRef, mergeRef, expanded, onToggleExpand }: {
+  group: VerdictGroup
+  selected?: boolean
+  onSelect?: () => void
+  cardRef?: (el: HTMLDivElement | null) => void
+  mergeRef?: (fn: (() => void) | null) => void
+  expanded: boolean
+  onToggleExpand: () => void
+}) {
   const [showHistory, setShowHistory] = useState(false)
   const [latest, ...earlier] = group.verdicts
   return (
     <div style={{ marginBottom: 8 }}>
-      <VerdictCard v={latest} />
+      <VerdictCard v={latest} selected={selected} onSelect={onSelect} cardRef={cardRef} mergeRef={mergeRef} expanded={expanded} onToggleExpand={onToggleExpand} />
       {earlier.length > 0 && (
         <div style={{ marginTop: -4, marginLeft: 6, marginBottom: 4 }}>
           <button
@@ -209,9 +238,7 @@ function WorkerVerdictGroup({ group }: { group: VerdictGroup }) {
           {showHistory && (
             <div style={{ marginTop: 4, marginLeft: 10, paddingLeft: 10, borderLeft: '2px solid #1f2937' }}>
               {earlier.map(v => (
-                <div key={`${v.reviewer_id}-${v.task_id}-${v.reviewed_at}`} style={{ marginBottom: 6 }}>
-                  <VerdictCard v={v} />
-                </div>
+                <EarlierVerdictCard key={`${v.reviewer_id}-${v.task_id}-${v.reviewed_at}`} v={v} />
               ))}
             </div>
           )}
@@ -221,11 +248,96 @@ function WorkerVerdictGroup({ group }: { group: VerdictGroup }) {
   )
 }
 
+function EarlierVerdictCard({ v }: { v: ReviewVerdict }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <VerdictCard v={v} expanded={expanded} onToggleExpand={() => setExpanded(e => !e)} />
+    </div>
+  )
+}
+
+const REVIEWPANEL_COLLAPSED_KEY = 'orchestrate.reviewpanel.collapsed'
+
+function loadCollapsed(): boolean {
+  try { return localStorage.getItem(REVIEWPANEL_COLLAPSED_KEY) === '1' } catch { return false }
+}
+
 export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const [workerID, setWorkerID] = useState('')
   const [taskID, setTaskID] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [cursor, setCursor] = useState<number>(-1)
+  const [hovered, setHovered] = useState(false)
+  const [expandedSet, setExpandedSet] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState<boolean>(() => loadCollapsed())
+
+  useEffect(() => {
+    try { localStorage.setItem(REVIEWPANEL_COLLAPSED_KEY, collapsed ? '1' : '0') } catch { /* ignore */ }
+  }, [collapsed])
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([])
+  const mergeFns = useRef<Array<(() => void) | null>>([])
+
+  const groups = groupVerdictsByWorker(verdicts)
+  const groupCount = groups.length
+
+  useEffect(() => {
+    if (cursor >= groupCount) setCursor(groupCount > 0 ? groupCount - 1 : -1)
+  }, [groupCount, cursor])
+
+  useEffect(() => {
+    if (!hovered) return
+    function isTypingTarget(t: EventTarget | null): boolean {
+      if (!(t instanceof HTMLElement)) return false
+      const tag = t.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(e.target)) return
+      if (groupCount === 0) return
+      if (e.key === 'j') {
+        e.preventDefault()
+        setCursor(c => Math.min(groupCount - 1, c < 0 ? 0 : c + 1))
+      } else if (e.key === 'k') {
+        e.preventDefault()
+        setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
+      } else if (e.key === 'Enter' && cursor >= 0) {
+        e.preventDefault()
+        const key = groups[cursor].worker_id
+        setExpandedSet(prev => {
+          const next = new Set(prev)
+          if (next.has(key)) next.delete(key)
+          else next.add(key)
+          return next
+        })
+      } else if (e.key === 'A' && e.shiftKey && cursor >= 0) {
+        e.preventDefault()
+        const fn = mergeFns.current[cursor]
+        if (fn) fn()
+        else toast('info', 'Nothing to accept', 'This verdict is not in a mergeable state.')
+      } else if (e.key === 'R' && e.shiftKey && cursor >= 0) {
+        e.preventDefault()
+        const g = groups[cursor]
+        const latest = g.verdicts[0]
+        setWorkerID(g.worker_id)
+        setTaskID(latest.task_id)
+        toast('info', 'Re-review prefilled', `${g.worker_id} · ${latest.task_id}`)
+      } else if (e.key === 'Escape' && cursor >= 0) {
+        e.preventDefault()
+        setCursor(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [hovered, groupCount, cursor, groups])
+
+  useEffect(() => {
+    if (cursor < 0) return
+    const el = cardRefs.current[cursor]
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [cursor])
 
   async function handleRequest() {
     if (!workerID.trim() || !taskID.trim()) { setErr('Worker ID and Task ID are required.'); return }
@@ -245,9 +357,20 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const pendingRequests = requests.filter(r => r.status === 'pending')
 
   return (
-    <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, overflow: 'hidden' }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setCursor(-1) }}
+      style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, overflow: 'hidden' }}
+    >
       {/* Header */}
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        onClick={() => setCollapsed(c => !c)}
+        style={{
+          padding: '10px 16px', borderBottom: collapsed ? 'none' : '1px solid #374151',
+          display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none',
+        }}
+      >
+        <span style={{ display: 'inline-block', width: 10, color: '#9ca3af', transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 120ms ease' }}>▾</span>
         <span style={{ color: '#f9fafb', fontWeight: 700, fontSize: 14 }}>Code Reviews</span>
         {verdicts.length > 0 && (
           <span style={{ background: '#374151', color: '#9ca3af', borderRadius: 10, padding: '1px 8px', fontSize: 12 }}>
@@ -260,6 +383,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
           </span>
         )}
       </div>
+      {collapsed ? null : (<>
 
       {/* Request review form */}
       <div style={{ padding: '10px 16px', borderBottom: '1px solid #374151', display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -309,9 +433,28 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
       {/* Verdicts */}
       {verdicts.length > 0 ? (
         <div style={{ padding: 12 }}>
-          {groupVerdictsByWorker(verdicts).map(group => (
-            <WorkerVerdictGroup key={group.worker_id} group={group} />
+          {groups.map((group, i) => (
+            <WorkerVerdictGroup
+              key={group.worker_id}
+              group={group}
+              selected={cursor === i}
+              onSelect={() => setCursor(i)}
+              cardRef={(el) => { cardRefs.current[i] = el }}
+              mergeRef={(fn) => { mergeFns.current[i] = fn }}
+              expanded={expandedSet.has(group.worker_id)}
+              onToggleExpand={() => setExpandedSet(prev => {
+                const next = new Set(prev)
+                if (next.has(group.worker_id)) next.delete(group.worker_id)
+                else next.add(group.worker_id)
+                return next
+              })}
+            />
           ))}
+          {hovered && groupCount > 0 && (
+            <div style={{ color: '#475569', fontSize: 10, textAlign: 'right', marginTop: 4, fontStyle: 'italic' }}>
+              j/k · Enter · Shift+A merge · Shift+R re-review
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: 20, color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>
@@ -320,6 +463,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
           whose branch you want evaluated — verdicts will appear here.
         </div>
       )}
+      </>)}
     </div>
   )
 }

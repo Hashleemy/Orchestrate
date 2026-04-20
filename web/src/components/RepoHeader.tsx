@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { api } from '../api/client'
 import type { AgentStatus, Task } from '../types'
@@ -10,12 +10,57 @@ interface Props {
   onChangeRepo?:  (path: string) => Promise<void>
 }
 
+const RECENT_REPOS_KEY = 'orchestrate.repoheader.recentpaths'
+const RECENT_REPOS_MAX = 5
+
+function loadRecentRepos(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_REPOS_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return arr.filter(x => typeof x === 'string').slice(0, RECENT_REPOS_MAX)
+  } catch { /* ignore */ }
+  return []
+}
+
+function pushRecentRepo(path: string): string[] {
+  const cur = loadRecentRepos()
+  const next = [path, ...cur.filter(p => p !== path)].slice(0, RECENT_REPOS_MAX)
+  try { localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+  return next
+}
+
 export function RepoHeader({ agents, tasks, repoPath, onChangeRepo }: Props) {
   const [editing,  setEditing]  = useState(false)
   const [inputVal, setInputVal] = useState('')
   const [err,      setErr]      = useState<string | null>(null)
   const [saving,   setSaving]   = useState(false)
+  const [recents,  setRecents]  = useState<string[]>(() => loadRecentRepos())
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (repoPath) setRecents(pushRecentRepo(repoPath))
+  }, [repoPath])
+
+  function removeRecent(path: string) {
+    const next = recents.filter(p => p !== path)
+    try { localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+    setRecents(next)
+  }
+
+  async function pickRecent(path: string) {
+    if (!onChangeRepo) return
+    setSaving(true)
+    setErr(null)
+    try {
+      await onChangeRepo(path)
+      setEditing(false)
+    } catch (ex) {
+      setErr(String(ex).replace(/^Error: /, ''))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function startEdit() {
     setInputVal(repoPath ?? '')
@@ -145,6 +190,39 @@ export function RepoHeader({ agents, tasks, repoPath, onChangeRepo }: Props) {
                 }}
               >Cancel</button>
               {err && <span style={{ fontSize: 11, color: '#ef4444', maxWidth: 200 }}>{err}</span>}
+              {recents.filter(p => p !== repoPath).length > 0 && (
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginLeft: 6, flexWrap: 'wrap', maxWidth: 420 }}>
+                  <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>recent</span>
+                  {recents.filter(p => p !== repoPath).map(p => (
+                    <span key={p} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => pickRecent(p)}
+                        disabled={saving}
+                        title={p}
+                        style={{
+                          background: '#0b1220', border: '1px solid #1e3a5f',
+                          color: '#93c5fd', borderRadius: '4px 0 0 4px',
+                          padding: '2px 8px', fontSize: 11, fontFamily: 'monospace',
+                          cursor: saving ? 'default' : 'pointer',
+                          maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap', borderRight: 'none',
+                        }}
+                      >{shortenPath(p)}</button>
+                      <button
+                        type="button"
+                        onClick={() => removeRecent(p)}
+                        title="Forget this recent path"
+                        style={{
+                          background: '#0b1220', border: '1px solid #1e3a5f',
+                          color: '#6b7280', borderRadius: '0 4px 4px 0',
+                          padding: '2px 5px', fontSize: 10, cursor: 'pointer',
+                        }}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </form>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -291,4 +369,13 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 
 function Divider() {
   return <div style={{ width: 1, height: 36, background: '#1e293b', flexShrink: 0 }} />
+}
+
+function shortenPath(p: string): string {
+  if (p.length <= 26) return p
+  const tail = p.slice(-22)
+  const ix = tail.indexOf('\\')
+  const ix2 = tail.indexOf('/')
+  const cut = Math.max(ix, ix2)
+  return '…' + (cut > 0 ? tail.slice(cut) : tail)
 }

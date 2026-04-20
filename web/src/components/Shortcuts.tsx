@@ -4,15 +4,17 @@ type Shortcut = { keys: string[]; description: string }
 
 const SHORTCUTS: Shortcut[] = [
   { keys: ['N'],       description: 'Add a new task' },
-  { keys: ['/'],       description: 'Focus the agent filter input' },
+  { keys: ['/'],       description: 'Focus feed search when hovered, otherwise the agent filter' },
   { keys: ['G'],       description: 'Jump to the orchestration graph' },
   { keys: ['S'],       description: 'Open the global search palette' },
   { keys: ['C'],       description: 'Toggle compact mode' },
   { keys: ['Ctrl+K'],  description: 'Open the global search palette (works from inputs too)' },
-  { keys: ['J', 'K'],  description: 'Move the communications feed cursor down / up' },
-  { keys: ['Enter'],   description: 'Filter feed to the selected row\'s task' },
+  { keys: ['J', 'K'],  description: 'Move cursor down / up in the hovered section (feed, tasks, reviews, runs)' },
+  { keys: ['Enter'],   description: 'Feed: filter to task · Tasks: open drawer · Reviews: expand' },
+  { keys: ['Shift+A'], description: 'Reviews: merge focused verdict when mergeable' },
+  { keys: ['Shift+R'], description: 'Reviews: prefill re-review form with focused worker/task' },
   { keys: ['?'],       description: 'Show this cheat sheet' },
-  { keys: ['Esc'],     description: 'Close open modal, form, or clear filter' },
+  { keys: ['Esc'],     description: 'Close modal/form, clear filter, or dismiss newest toast' },
 ]
 
 export function ShortcutOverlay() {
