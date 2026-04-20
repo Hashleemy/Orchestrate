@@ -1,0 +1,23 @@
+# Build artifacts
+orchestrator.exe
+web/node_modules/
+internal/uiembed/dist/*.js
+internal/uiembed/dist/*.css
+internal/uiembed/dist/*.map
+
+# Runtime state
+agent-comms/events/
+agent-comms/status/
+agent-comms/messages/
+agent-comms/approvals/
+agent-comms/claims/
+agent-comms/tasks/
+agent-comms/checkpoints/
+agent-comms/runs/
+agent-comms/reviews/
+worktrees/
+
+# Tooling
+.vscode/
+.idea/
+*.log

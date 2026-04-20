@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orchestrator</title>
+    <link rel="stylesheet" href="/main.css" />
+    <style>
+      #root:empty::before {
+        content: 'Orchestrator';
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: #6b7280;
+        background: #030712;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/main.js"></script>
+  </body>
+</html>
