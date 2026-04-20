@@ -1000,4 +1000,123 @@ acceptance:
   - Badge uses reviewer yellow color scheme
 risk: low
 
+### TASK-153
+status: todo
+priority: normal
+type: feature
+title: Toasts — per-toast close button and optional "view" action link
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/Toast.tsx
+acceptance:
+  - Each toast has an X icon to dismiss immediately (uses existing leaving animation)
+  - Toast API accepts an optional action ({label, onClick}) for a small trailing button
+risk: low
+
+### TASK-154
+status: todo
+priority: normal
+type: feature
+title: RunHistory — filter by run outcome (all / success / failed)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/RunHistory.tsx
+acceptance:
+  - Outcome chips above the list toggle the view between all / success / failed
+  - Filter state persists in localStorage
+  - Counts shown on each chip
+risk: low
+
+### TASK-155
+status: todo
+priority: normal
+type: feature
+title: ApprovalQueue — bulk-deny minor queue
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/ApprovalQueue.tsx
+acceptance:
+  - When ≥2 minors in queue, show "Deny all minor (N)" alongside the existing bulk-approve
+  - Confirms via window.confirm, then fires parallel denies
+risk: low
+
+### TASK-156
+status: todo
+priority: normal
+type: feature
+title: CheckpointPanel — filter by trigger type
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CheckpointPanel.tsx
+acceptance:
+  - Chips for each distinct trigger (lockfile_change, protected_merge, major_change, ...) toggle visibility
+  - All-active shows full list
+  - Empty state per filter hides the panel cleanly
+risk: low
+
+### TASK-157
+status: todo
+priority: normal
+type: feature
+title: Global search (Ctrl+K or "s") across agents, tasks, events
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/components/SearchPalette.tsx
+acceptance:
+  - Press s (or Ctrl+K) to open a floating palette
+  - Palette lists agents, tasks, and recent events matching the query
+  - Selecting a result focuses the relevant section and sets the matching filter
+risk: low
+
+### TASK-158
+status: todo
+priority: low
+type: feature
+title: ApprovalCard — show elapsed time since pending
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/ApprovalQueue.tsx
+acceptance:
+  - Each pending approval shows "Xm Ys waiting" based on created_at
+  - Updates every second via the same 500ms tick Dashboard already runs
+risk: low
+
+### TASK-159
+status: todo
+priority: low
+type: feature
+title: CommFeed — j/k keyboard navigation through rows
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - j moves focus/highlight down, k moves up
+  - Enter opens contextual action (set agent filter for events, show full body for messages)
+  - Shortcut listed in ? overlay
+risk: low
+
+### TASK-160
+status: todo
+priority: normal
+type: feature
+title: TaskDrawer — edit task status inline
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskDrawer.tsx
+  - web/src/api/client.ts
+acceptance:
+  - StatusChip in drawer header becomes a dropdown/popover when clicked
+  - Choosing a new status calls api.updateTaskStatus and refreshes tasks
+  - Error state shown if update fails
+risk: low
+
 
