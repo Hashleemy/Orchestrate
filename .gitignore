@@ -21,3 +21,4 @@ worktrees/
 .vscode/
 .idea/
 *.log
+kill-8080.ps1

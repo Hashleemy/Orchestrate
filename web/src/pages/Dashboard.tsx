@@ -34,7 +34,9 @@ interface Props {
 }
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
-  const [showModal, setShowModal] = useState(false)
+  const [showModal,   setShowModal]   = useState(false)
+  const [agentQuery,  setAgentQuery]  = useState('')
+  const [stateFilter, setStateFilter] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500)
@@ -97,10 +99,39 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Section title={`Agents (${agents.length})`}>
           {agents.length === 0
-            ? <Empty text="No agents running. Click + Start Run to begin." />
-            : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {agents.map(a => <AgentCard key={a.agent} agent={a} onRespawn={onRespawn} recentAction={recentAction.get(a.agent)} />)}
-              </div>
+            ? <Empty icon="🤖" text="No agents running. Click + Start Run to spawn a coordinator and workers." />
+            : (() => {
+                const q = agentQuery.trim().toLowerCase()
+                const filtered = agents.filter(a => {
+                  if (stateFilter && a.state !== stateFilter) return false
+                  if (q && !a.agent.toLowerCase().includes(q) && !a.branch.toLowerCase().includes(q)) return false
+                  return true
+                })
+                const stateCounts: Record<string, number> = {}
+                for (const a of agents) stateCounts[a.state] = (stateCounts[a.state] ?? 0) + 1
+                const active = agentQuery || stateFilter
+                return (
+                  <>
+                    <AgentFilterBar
+                      query={agentQuery}
+                      onQueryChange={setAgentQuery}
+                      stateFilter={stateFilter}
+                      onStateFilterChange={setStateFilter}
+                      stateCounts={stateCounts}
+                      onClear={() => { setAgentQuery(''); setStateFilter(null) }}
+                      active={!!active}
+                      matchCount={filtered.length}
+                      total={agents.length}
+                    />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                      {filtered.length === 0
+                        ? <div style={{ color: '#6b7280', fontSize: 12, padding: 8 }}>No agents match the current filter.</div>
+                        : filtered.map(a => <AgentCard key={a.agent} agent={a} onRespawn={onRespawn} recentAction={recentAction.get(a.agent)} />)
+                      }
+                    </div>
+                  </>
+                )
+              })()
           }
         </Section>
 
@@ -112,7 +143,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       {/* Row 2: Tasks (full width) */}
       <Section title={`Tasks (${tasks.length})`} style={{ marginBottom: 20 }}>
         {tasks.length === 0
-          ? <Empty text="No tasks.md loaded yet. Start a run to load tasks." />
+          ? <Empty icon="📋" text="No tasks loaded. Add examples/tasks.md to the target repo, or press N to add one from the UI." />
           : <TaskBoard tasks={tasks} onTaskCreated={onTaskCreated} />
         }
       </Section>
@@ -156,6 +187,72 @@ function Pill({ label, count, color }: { label: string; count: number; color: st
   )
 }
 
-function Empty({ text }: { text: string }) {
-  return <div style={{ color: '#4b5563', fontSize: 13, padding: 4 }}>{text}</div>
+function Empty({ text, icon }: { text: string; icon?: string }) {
+  return (
+    <div style={{ color: '#6b7280', fontSize: 13, padding: '14px 6px', lineHeight: 1.6 }}>
+      {icon && <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>}
+      {text}
+    </div>
+  )
+}
+
+const STATE_CHIP_COLORS: Record<string, string> = {
+  idle: '#6b7280', planning: '#3b82f6', coding: '#22c55e', testing: '#06b6d4',
+  blocked: '#f97316', awaiting_approval: '#eab308', complete: '#15803d', stopped: '#7f1d1d',
+}
+
+function AgentFilterBar({
+  query, onQueryChange, stateFilter, onStateFilterChange, stateCounts, onClear, active, matchCount, total,
+}: {
+  query: string
+  onQueryChange: (s: string) => void
+  stateFilter: string | null
+  onStateFilterChange: (s: string | null) => void
+  stateCounts: Record<string, number>
+  onClear: () => void
+  active: boolean
+  matchCount: number
+  total: number
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+      <input
+        value={query}
+        onChange={e => onQueryChange(e.target.value)}
+        placeholder="Filter by id or branch…"
+        style={{
+          background: '#0f172a', border: '1px solid #334155',
+          color: '#e2e8f0', borderRadius: 4,
+          padding: '4px 10px', fontSize: 12, fontFamily: 'monospace',
+          width: 200, outline: 'none',
+        }}
+      />
+      {Object.entries(stateCounts).map(([state, count]) => (
+        <button
+          key={state}
+          onClick={() => onStateFilterChange(stateFilter === state ? null : state)}
+          style={{
+            background: stateFilter === state ? STATE_CHIP_COLORS[state] ?? '#374151' : 'transparent',
+            color: stateFilter === state ? '#fff' : STATE_CHIP_COLORS[state] ?? '#9ca3af',
+            border: `1px solid ${STATE_CHIP_COLORS[state] ?? '#374151'}`,
+            borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 600,
+            textTransform: 'uppercase', letterSpacing: '0.03em', cursor: 'pointer',
+          }}
+        >{state} {count}</button>
+      ))}
+      {active && (
+        <>
+          <span style={{ color: '#6b7280', fontSize: 11 }}>{matchCount}/{total}</span>
+          <button
+            onClick={onClear}
+            style={{
+              background: 'none', border: '1px solid #374151',
+              color: '#9ca3af', borderRadius: 4,
+              padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+            }}
+          >Clear</button>
+        </>
+      )}
+    </div>
+  )
 }

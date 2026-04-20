@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"local-agent-orchestrator/internal/approvals"
 	"local-agent-orchestrator/internal/config"
@@ -14,12 +15,13 @@ import (
 )
 
 type Server struct {
-	addr     string
-	mux      *http.ServeMux
-	orch     *orchestrator.Orchestrator
-	svc      *approvals.Service
-	store    *sessions.Store
-	procs    *sessions.ProcessRegistry
+	addr      string
+	mux       *http.ServeMux
+	orch      *orchestrator.Orchestrator
+	svc       *approvals.Service
+	store     *sessions.Store
+	procs     *sessions.ProcessRegistry
+	startedAt time.Time
 
 	mu       sync.RWMutex
 	repoPath string
@@ -54,13 +56,14 @@ func NewServer() (*Server, error) {
 	}
 
 	s := &Server{
-		addr:     addr,
-		mux:      http.NewServeMux(),
-		orch:     orch,
-		svc:      svc,
-		store:    store,
-		procs:    sessions.NewProcessRegistry(),
-		repoPath: repoRoot,
+		addr:      addr,
+		mux:       http.NewServeMux(),
+		orch:      orch,
+		svc:       svc,
+		store:     store,
+		procs:     sessions.NewProcessRegistry(),
+		repoPath:  repoRoot,
+		startedAt: time.Now(),
 	}
 	s.registerRoutes()
 	return s, nil

@@ -11,7 +11,13 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
   const resolved = approvals.filter(a => a.status !== 'pending')
 
   if (approvals.length === 0) {
-    return <div style={{ color: '#4b5563', fontSize: 13, padding: 4 }}>No approval requests.</div>
+    return (
+      <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 20, marginBottom: 6 }}>🟢</div>
+        No approvals pending. Agents will request approval here for things like
+        package installs, sensitive-file edits, and merges to main.
+      </div>
+    )
   }
 
   return (

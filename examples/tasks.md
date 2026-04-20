@@ -217,7 +217,7 @@ acceptance:
 risk: low
 
 ### TASK-102
-status: todo
+status: done
 priority: high
 type: feature
 title: Toast notifications for push/merge/respawn actions
@@ -234,7 +234,7 @@ acceptance:
 risk: low
 
 ### TASK-103
-status: todo
+status: done
 priority: normal
 type: feature
 title: Agent filter bar — search by ID/state/branch
@@ -249,7 +249,7 @@ acceptance:
 risk: low
 
 ### TASK-104
-status: todo
+status: done
 priority: normal
 type: feature
 title: /api/health endpoint returning version, uptime, go version, agent count
@@ -265,7 +265,7 @@ acceptance:
 risk: low
 
 ### TASK-105
-status: todo
+status: done
 priority: low
 type: feature
 title: Export run summary as Markdown download
@@ -280,7 +280,7 @@ acceptance:
 risk: low
 
 ### TASK-106
-status: todo
+status: done
 priority: low
 type: polish
 title: Better empty-state copy across the dashboard
@@ -298,7 +298,7 @@ acceptance:
 risk: low
 
 ### TASK-107
-status: todo
+status: done
 priority: low
 type: feature
 title: Keyboard shortcut N to open Add Task form

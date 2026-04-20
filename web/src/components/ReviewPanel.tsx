@@ -258,8 +258,10 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
           {verdicts.map(v => <VerdictCard key={`${v.reviewer_id}-${v.task_id}-${v.reviewed_at}`} v={v} />)}
         </div>
       ) : (
-        <div style={{ padding: 16, color: '#4b5563', fontSize: 13, textAlign: 'center' }}>
-          No review verdicts yet.
+        <div style={{ padding: 20, color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>
+          <div style={{ fontSize: 22, marginBottom: 4 }}>🔍</div>
+          No reviews yet. Request a review by spawning a reviewer for a worker
+          whose branch you want evaluated — verdicts will appear here.
         </div>
       )}
     </div>

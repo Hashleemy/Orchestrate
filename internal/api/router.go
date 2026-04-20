@@ -7,6 +7,7 @@ func (s *Server) registerRoutes() {
 
 	// Health & status
 	s.mux.HandleFunc("GET /api/status", h.Status)
+	s.mux.HandleFunc("GET /api/health", h.Health)
 
 	// Repo management
 	s.mux.HandleFunc("POST /api/repo/open", h.RepoOpen)

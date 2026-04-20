@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	"local-agent-orchestrator/internal/approvals"
@@ -40,6 +41,26 @@ func (h *handlers) Status(w http.ResponseWriter, r *http.Request) {
 		"repo_path": repoPath,
 		"branch":    branch,
 		"clean":     clean,
+	})
+}
+
+// Health reports server version, uptime, go version, and live agent count.
+func (h *handlers) Health(w http.ResponseWriter, r *http.Request) {
+	agents, _ := h.orch.AgentStatuses()
+	alive := 0
+	for _, a := range agents {
+		if h.srv.procs.IsAlive(a.Agent) {
+			alive++
+		}
+	}
+	uptime := time.Since(h.srv.startedAt)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":           true,
+		"version":      "0.1.0",
+		"go_version":   runtime.Version(),
+		"started_at":   h.srv.startedAt.Format(time.RFC3339),
+		"uptime_sec":   int(uptime.Seconds()),
+		"agents_alive": alive,
 	})
 }
 

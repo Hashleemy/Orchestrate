@@ -40,6 +40,46 @@ function StatusBadge({ status }: { status: RunRecord['status'] }) {
   )
 }
 
+function buildRunMarkdown(run: RunRecord): string {
+  const lines: string[] = []
+  lines.push(`# Run ${run.id}`)
+  lines.push('')
+  lines.push(`- **Status:** ${run.status}`)
+  lines.push(`- **Started:** ${run.started_at}`)
+  if (run.ended_at) lines.push(`- **Ended:** ${run.ended_at}`)
+  lines.push(`- **Duration:** ${duration(run.duration_sec)}`)
+  lines.push(`- **Repo:** \`${run.repo_path}\``)
+  lines.push(`- **Tasks:** ${run.tasks_done}/${run.tasks_total}`)
+  lines.push(`- **Events:** ${run.event_count}`)
+  lines.push(`- **Agents:** ${run.workers.join(', ') || '—'}`)
+  if (run.done_ids.length > 0) {
+    lines.push('')
+    lines.push('## Completed Tasks')
+    for (const id of run.done_ids) lines.push(`- ${id}`)
+  }
+  if (run.summary) {
+    lines.push('')
+    lines.push('## Summary')
+    lines.push('')
+    lines.push('```')
+    lines.push(run.summary)
+    lines.push('```')
+  }
+  return lines.join('\n') + '\n'
+}
+
+function downloadRunMarkdown(run: RunRecord) {
+  const blob = new Blob([buildRunMarkdown(run)], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `run-${run.id}.md`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 function RunRow({ run }: { run: RunRecord }) {
   const [expanded, setExpanded] = useState(false)
   const pct = run.tasks_total > 0 ? Math.round((run.tasks_done / run.tasks_total) * 100) : 0
@@ -91,6 +131,15 @@ function RunRow({ run }: { run: RunRecord }) {
               whiteSpace: 'pre-wrap', margin: 0, maxHeight: 200, overflowY: 'auto',
             }}>{run.summary}</pre>
           )}
+          <div>
+            <button
+              onClick={() => downloadRunMarkdown(run)}
+              style={{
+                background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb',
+                borderRadius: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
+            >⬇ Export as Markdown</button>
+          </div>
         </div>
       )}
     </div>
@@ -110,10 +159,12 @@ export function RunHistory({ runs }: Props) {
   if (runs.length === 0) {
     return (
       <div style={{
-        background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: 20,
-        color: '#6b7280', fontSize: 13, textAlign: 'center',
+        background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: 24,
+        color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6,
       }}>
-        No run history yet. Start a run to begin recording history.
+        <div style={{ fontSize: 22, marginBottom: 6 }}>📜</div>
+        No runs recorded yet. Each run you start will show up here with
+        duration, tasks completed, and an export-to-Markdown option.
       </div>
     )
   }

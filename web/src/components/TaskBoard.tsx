@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { Task } from '../types'
 
@@ -104,6 +104,25 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
   const [sortByPriority, setSortByPriority] = useState(true)
   const [showForm, setShowForm] = useState(false)
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName?.toLowerCase()
+      const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable
+      if (e.key === 'Escape' && showForm) {
+        setShowForm(false)
+        return
+      }
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault()
+        setShowForm(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showForm])
+
   const filtered = tasks.filter(t => filterStatus === 'all' || t.status === filterStatus)
 
   const sorted = sortByPriority
@@ -164,6 +183,7 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
           >Priority</button>
           <button
             onClick={() => setShowForm(f => !f)}
+            title={showForm ? 'Close (Esc)' : 'Add a new task (N)'}
             style={{
               background: showForm ? '#374151' : '#1d4ed8',
               color: '#fff', border: 'none',
@@ -171,6 +191,13 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
               fontSize: 11, fontWeight: 600, cursor: 'pointer',
             }}
           >{showForm ? '✕ Cancel' : '+ Add Task'}</button>
+          {!showForm && (
+            <kbd style={{
+              fontFamily: 'monospace', fontSize: 10, color: '#6b7280',
+              border: '1px solid #374151', borderRadius: 3, padding: '1px 5px',
+              background: '#111827',
+            }}>N</kbd>
+          )}
         </div>
       </div>
 
