@@ -168,6 +168,59 @@ function RequestRow({ req }: { req: ReviewRequest }) {
   )
 }
 
+interface VerdictGroup { worker_id: string; verdicts: ReviewVerdict[] }
+
+function groupVerdictsByWorker(verdicts: ReviewVerdict[]): VerdictGroup[] {
+  const byWorker = new Map<string, ReviewVerdict[]>()
+  for (const v of verdicts) {
+    const list = byWorker.get(v.worker_id) ?? []
+    list.push(v)
+    byWorker.set(v.worker_id, list)
+  }
+  const groups: VerdictGroup[] = []
+  for (const [worker_id, list] of byWorker) {
+    list.sort((a, b) => new Date(b.reviewed_at).getTime() - new Date(a.reviewed_at).getTime())
+    groups.push({ worker_id, verdicts: list })
+  }
+  groups.sort((a, b) =>
+    new Date(b.verdicts[0].reviewed_at).getTime() - new Date(a.verdicts[0].reviewed_at).getTime()
+  )
+  return groups
+}
+
+function WorkerVerdictGroup({ group }: { group: VerdictGroup }) {
+  const [showHistory, setShowHistory] = useState(false)
+  const [latest, ...earlier] = group.verdicts
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <VerdictCard v={latest} />
+      {earlier.length > 0 && (
+        <div style={{ marginTop: -4, marginLeft: 6, marginBottom: 4 }}>
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#60a5fa', fontSize: 11, fontWeight: 600,
+              padding: '4px 6px', letterSpacing: '0.02em',
+            }}
+          >
+            {showHistory ? '▾' : '▸'} {earlier.length} earlier verdict{earlier.length === 1 ? '' : 's'} for {group.worker_id}
+          </button>
+          {showHistory && (
+            <div style={{ marginTop: 4, marginLeft: 10, paddingLeft: 10, borderLeft: '2px solid #1f2937' }}>
+              {earlier.map(v => (
+                <div key={`${v.reviewer_id}-${v.task_id}-${v.reviewed_at}`} style={{ marginBottom: 6 }}>
+                  <VerdictCard v={v} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const [workerID, setWorkerID] = useState('')
   const [taskID, setTaskID] = useState('')
@@ -256,7 +309,9 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
       {/* Verdicts */}
       {verdicts.length > 0 ? (
         <div style={{ padding: 12 }}>
-          {verdicts.map(v => <VerdictCard key={`${v.reviewer_id}-${v.task_id}-${v.reviewed_at}`} v={v} />)}
+          {groupVerdictsByWorker(verdicts).map(group => (
+            <WorkerVerdictGroup key={group.worker_id} group={group} />
+          ))}
         </div>
       ) : (
         <div style={{ padding: 20, color: '#6b7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>

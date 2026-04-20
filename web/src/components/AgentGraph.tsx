@@ -50,9 +50,11 @@ interface Props {
   reviewRequests?: ReviewRequest[]
   onSelectAgent?: (agentId: string) => void
   selectedAgent?: string | null
+  onSelectTask?: (taskId: string) => void
+  selectedTask?: string | null
 }
 
-export function AgentGraph({ agents, events, messages = [], reviewRequests = [], onSelectAgent, selectedAgent }: Props) {
+export function AgentGraph({ agents, events, messages = [], reviewRequests = [], onSelectAgent, selectedAgent, onSelectTask, selectedTask }: Props) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -192,13 +194,17 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
       {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big
         stale={isStale(coord, now)}
         selected={selectedAgent === coord.agent}
-        onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined} />}
+        taskSelected={!!coord.task_id && selectedTask === coord.task_id}
+        onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined}
+        onTaskClick={onSelectTask} />}
 
       {workers.map((w, i) => (
         <AgentNode key={w.agent} agent={w} x={workerXs[i]} y={workerY} active={isActive(w.agent)}
           stale={isStale(w, now)}
           selected={selectedAgent === w.agent}
-          onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined} />
+          taskSelected={!!w.task_id && selectedTask === w.task_id}
+          onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined}
+          onTaskClick={onSelectTask} />
       ))}
 
       <Legend x={20} y={H - 24} />
@@ -206,7 +212,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   )
 }
 
-function AgentNode({ agent, x, y, active, big, selected, stale, onClick }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; onClick?: () => void }) {
+function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskClick, taskSelected }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; taskSelected?: boolean; onClick?: () => void; onTaskClick?: (taskId: string) => void }) {
   const role = roleOf(agent.agent)
   const fill = ROLE_COLORS[role] ?? ROLE_COLORS.default
   const dead = agent.alive === false && agent.state !== 'complete'
@@ -258,9 +264,25 @@ function AgentNode({ agent, x, y, active, big, selected, stale, onClick }: { age
         {dead ? 'DEAD' : agent.state}
       </text>
       {agent.task_id && (
-        <text x={0} y={baseR + 44} textAnchor="middle" fill="#6b7280" fontSize={9}>
-          {agent.task_id}
-        </text>
+        <g
+          transform={`translate(0, ${baseR + 44})`}
+          onClick={onTaskClick ? (e) => { e.stopPropagation(); onTaskClick(agent.task_id!) } : undefined}
+          style={onTaskClick ? { cursor: 'pointer' } : undefined}
+        >
+          <rect
+            x={-(agent.task_id.length * 3.3 + 8)}
+            y={-8}
+            width={agent.task_id.length * 3.3 * 2 + 16}
+            height={13}
+            rx={6}
+            fill={taskSelected ? '#14b8a6' : '#1f2937'}
+            stroke={taskSelected ? '#5eead4' : '#374151'}
+            strokeWidth={1}
+          />
+          <text x={0} y={2} textAnchor="middle" fill={taskSelected ? '#f0fdfa' : '#9ca3af'} fontSize={9} fontWeight={600}>
+            {agent.task_id}
+          </text>
+        </g>
       )}
     </g>
   )

@@ -774,7 +774,7 @@ acceptance:
 risk: low
 
 ### TASK-138
-status: todo
+status: done
 priority: normal
 type: feature
 title: Pause/Resume individual agent from AgentCard
@@ -790,7 +790,7 @@ acceptance:
 risk: low
 
 ### TASK-139
-status: todo
+status: done
 priority: normal
 type: feature
 title: Task board grouped view — group by status as columns (Kanban-lite)
@@ -805,7 +805,7 @@ acceptance:
 risk: low
 
 ### TASK-140
-status: todo
+status: done
 priority: normal
 type: feature
 title: CommFeed auto-scroll toggle with "jump to newest" on new items
@@ -820,7 +820,7 @@ acceptance:
 risk: low
 
 ### TASK-141
-status: todo
+status: done
 priority: low
 type: feature
 title: Dim completed/stopped agents in grid when run is active
@@ -835,7 +835,7 @@ acceptance:
 risk: low
 
 ### TASK-142
-status: todo
+status: done
 priority: normal
 type: feature
 title: Per-task filter on CommFeed (click task_id chip → filter)
@@ -850,7 +850,7 @@ acceptance:
 risk: low
 
 ### TASK-143
-status: todo
+status: done
 priority: low
 type: feature
 title: Orchestration graph — show active task_id label under each node
@@ -864,7 +864,7 @@ acceptance:
 risk: low
 
 ### TASK-144
-status: todo
+status: done
 priority: normal
 type: feature
 title: Review panel — show verdict history per worker (expandable)

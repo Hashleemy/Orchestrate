@@ -12,6 +12,8 @@ interface Props {
   maxItems?: number
   agentFilter?: string | null
   onClearAgentFilter?: () => void
+  taskFilter?: string | null
+  onTaskFilterChange?: (id: string | null) => void
 }
 
 type FeedItem =
@@ -53,9 +55,18 @@ const MSG_TYPE_COLOR: Record<string, string> = {
   block:     '#f97316',
 }
 
-export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter }: Props) {
+export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter, taskFilter: taskFilterProp, onTaskFilterChange }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [search, setSearch] = useState('')
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [newSinceScroll, setNewSinceScroll] = useState(0)
+  const [internalTaskFilter, setInternalTaskFilter] = useState<string | null>(null)
+  const taskFilter = taskFilterProp !== undefined ? taskFilterProp : internalTaskFilter
+  const setTaskFilter = (id: string | null) => {
+    if (onTaskFilterChange) onTaskFilterChange(id)
+    else setInternalTaskFilter(id)
+  }
+  const scrollRef = useRef<HTMLDivElement | null>(null)
 
   let items: FeedItem[] = [
     ...(typeFilter === 'messages' ? [] : events.map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))),
@@ -66,6 +77,10 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     items = items.filter(it => it.kind === 'event'
       ? it.data.agent === agentFilter
       : it.data.from === agentFilter || it.data.to === agentFilter)
+  }
+
+  if (taskFilter) {
+    items = items.filter(it => it.data.task_id === taskFilter)
   }
 
   const q = search.trim().toLowerCase()
@@ -111,8 +126,25 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
         return next
       })
     }, 2000)
+
+    const el = scrollRef.current
+    const atTop = !el || el.scrollTop < 24
+    if (autoScroll && atTop) {
+      if (el) el.scrollTop = 0
+      setNewSinceScroll(0)
+    } else {
+      setNewSinceScroll(n => n + newKeys.length)
+    }
+
     return () => window.clearTimeout(t)
-  }, [items])
+  }, [items, autoScroll])
+
+  function jumpToNewest() {
+    const el = scrollRef.current
+    if (el) el.scrollTop = 0
+    setAutoScroll(true)
+    setNewSinceScroll(0)
+  }
 
   const filterBar = (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
@@ -166,6 +198,29 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
           )}
         </span>
       )}
+      {taskFilter && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: '#134e4a', color: '#ccfbf1',
+          border: '1px solid #14b8a6', borderRadius: 12,
+          padding: '2px 4px 2px 10px', fontSize: 11, fontWeight: 600,
+        }}>
+          {taskFilter}
+          <button onClick={() => setTaskFilter(null)} style={{
+            background: 'none', border: 'none', color: '#ccfbf1',
+            cursor: 'pointer', fontSize: 14, padding: '0 4px', lineHeight: 1,
+          }} title="Clear task filter">×</button>
+        </span>
+      )}
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto', color: '#9ca3af', fontSize: 11, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={autoScroll}
+          onChange={e => setAutoScroll(e.target.checked)}
+          style={{ accentColor: '#2563eb' }}
+        />
+        auto-scroll to newest
+      </label>
     </div>
   )
 
@@ -186,14 +241,36 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   return (
     <>
       {filterBar}
-      <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {items.map((item) => {
-          const k = feedKey(item)
-          const flash = flashingKeys.has(k)
-          return item.kind === 'event'
-            ? <EventRow key={k} event={item.data} flash={flash} />
-            : <MessageRow key={k} message={item.data} flash={flash} />
-        })}
+      <div style={{ position: 'relative' }}>
+        <div
+          ref={scrollRef}
+          onScroll={e => {
+            const el = e.currentTarget
+            if (el.scrollTop > 24 && autoScroll) setAutoScroll(false)
+            if (el.scrollTop < 24) setNewSinceScroll(0)
+          }}
+          style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
+          {items.map((item) => {
+            const k = feedKey(item)
+            const flash = flashingKeys.has(k)
+            return item.kind === 'event'
+              ? <EventRow key={k} event={item.data} flash={flash} onTaskClick={setTaskFilter} />
+              : <MessageRow key={k} message={item.data} flash={flash} onTaskClick={setTaskFilter} />
+          })}
+        </div>
+        {!autoScroll && newSinceScroll > 0 && (
+          <button
+            onClick={jumpToNewest}
+            style={{
+              position: 'absolute', top: 6, right: 10,
+              background: '#2563eb', color: '#fff',
+              border: 'none', borderRadius: 14,
+              padding: '3px 12px', fontSize: 11, fontWeight: 700,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.4)', cursor: 'pointer',
+            }}
+          >Jump to newest ({newSinceScroll}) ↑</button>
+        )}
       </div>
     </>
   )
@@ -208,7 +285,7 @@ function feedKey(item: FeedItem): string {
   return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
 }
 
-function EventRow({ event, flash }: { event: OrchestratorEvent; flash?: boolean }) {
+function EventRow({ event, flash, onTaskClick }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
     <div style={{
@@ -229,7 +306,11 @@ function EventRow({ event, flash }: { event: OrchestratorEvent; flash?: boolean 
       }}>{event.type.replace(/_/g, ' ')}</span>
       <span style={{ color: '#60a5fa', fontSize: 11, whiteSpace: 'nowrap' }}>{event.agent}</span>
       {event.task_id && (
-        <code style={{ fontSize: 10, color: '#475569' }}>{event.task_id}</code>
+        <code
+          onClick={() => onTaskClick?.(event.task_id)}
+          title={`Filter feed to ${event.task_id}`}
+          style={{ fontSize: 10, color: '#475569', cursor: onTaskClick ? 'pointer' : 'default' }}
+        >{event.task_id}</code>
       )}
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {renderEventDetail(event)}
@@ -254,7 +335,7 @@ function renderEventDetail(event: OrchestratorEvent): ReactNode {
   )
 }
 
-function MessageRow({ message, flash }: { message: AgentMessage; flash?: boolean }) {
+function MessageRow({ message, flash, onTaskClick }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
     <div style={{
@@ -277,7 +358,11 @@ function MessageRow({ message, flash }: { message: AgentMessage; flash?: boolean
         {message.from} → {message.to}
       </span>
       {message.task_id && (
-        <code style={{ fontSize: 10, color: '#475569' }}>{message.task_id}</code>
+        <code
+          onClick={() => onTaskClick?.(message.task_id)}
+          title={`Filter feed to ${message.task_id}`}
+          style={{ fontSize: 10, color: '#475569', cursor: onTaskClick ? 'pointer' : 'default' }}
+        >{message.task_id}</code>
       )}
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {message.body}

@@ -97,6 +97,13 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [openTask, setOpenTask] = useState<Task | null>(null)
+  const [view, setView] = useState<'list' | 'board'>(() => {
+    try { return (localStorage.getItem('orchestrate.taskboard.view') as 'list' | 'board') ?? 'list' }
+    catch { return 'list' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('orchestrate.taskboard.view', view) } catch { /* ignore */ }
+  }, [view])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -199,6 +206,14 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
         ))}
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, color: '#6b7280' }}>View:</span>
+          <button
+            onClick={() => setView(v => v === 'list' ? 'board' : 'list')}
+            style={{
+              background: '#1f2937', color: '#9ca3af', border: '1px solid #374151',
+              borderRadius: 4, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
+            }}
+          >{view === 'list' ? '▦ Board' : '☰ List'}</button>
           <span style={{ fontSize: 11, color: '#6b7280' }}>Sort:</span>
           <button
             onClick={() => setSortByPriority(p => !p)}
@@ -236,8 +251,9 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
 
       {showForm && <AddTaskForm onDone={handleFormDone} />}
 
-      {/* Table */}
-      {sorted.length === 0
+      {view === 'board' ? (
+        <BoardView tasks={sorted} onOpen={setOpenTask} />
+      ) : sorted.length === 0
         ? <div style={{ color: '#4b5563', fontSize: 13, padding: 4 }}>No tasks match the current filter.</div>
         : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -290,6 +306,61 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
 
 function td(): React.CSSProperties {
   return { padding: '7px 10px', verticalAlign: 'middle' }
+}
+
+const BOARD_COLUMNS = ['todo', 'ready', 'in_progress', 'blocked', 'awaiting_review', 'awaiting_approval', 'done', 'cancelled']
+
+function BoardView({ tasks, onOpen }: { tasks: Task[]; onOpen: (t: Task) => void }) {
+  const grouped: Record<string, Task[]> = {}
+  for (const col of BOARD_COLUMNS) grouped[col] = []
+  for (const t of tasks) {
+    if (grouped[t.status]) grouped[t.status].push(t)
+    else (grouped['todo'] = grouped['todo'] ?? []).push(t)
+  }
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: 10,
+    }}>
+      {BOARD_COLUMNS.map(col => (
+        <div key={col} style={{
+          background: '#0f172a', border: '1px solid #1f2937',
+          borderRadius: 6, padding: 8, minHeight: 80,
+        }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+            color: STATUS_COLOR[col] ?? '#9ca3af', marginBottom: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span>{col.replace(/_/g, ' ')}</span>
+            <span style={{ color: '#4b5563' }}>{grouped[col].length}</span>
+          </div>
+          {grouped[col].length === 0
+            ? <div style={{ color: '#334155', fontSize: 11, fontStyle: 'italic' }}>empty</div>
+            : grouped[col].map(t => (
+                <div
+                  key={t.id}
+                  onClick={() => onOpen(t)}
+                  style={{
+                    background: '#1f2937', border: '1px solid #374151', borderRadius: 5,
+                    padding: '6px 8px', marginBottom: 6, cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontSize: 10, color: '#93c5fd', fontFamily: 'monospace', marginBottom: 2 }}>{t.id}</div>
+                  <div style={{ fontSize: 12, color: '#d1d5db', marginBottom: 4, lineHeight: 1.35 }}>{t.title}</div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <PriorityChip priority={t.priority} />
+                    <RiskChip risk={t.risk} />
+                  </div>
+                </div>
+              ))
+          }
+        </div>
+      ))}
+    </div>
+  )
 }
 
 import type React from 'react'

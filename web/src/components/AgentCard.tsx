@@ -174,7 +174,7 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
       <Row label="Action" value={agent.last_action || '—'} muted />
 
       {(dead || stale) && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={handleRespawn}
             disabled={respawning}
@@ -188,6 +188,20 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
           {respawnErr && (
             <span style={{ fontSize: 11, color: '#ef4444', marginLeft: 8 }}>{respawnErr}</span>
           )}
+        </div>
+      )}
+
+      {!dead && agent.state !== 'complete' && agent.state !== 'stopped' && (
+        <div style={{ marginTop: 6 }}>
+          <button
+            disabled
+            title="Pause/resume not wired in backend yet"
+            style={{
+              background: '#1f2937', border: '1px dashed #4b5563',
+              color: '#6b7280', borderRadius: 4,
+              padding: '3px 10px', fontSize: 11, cursor: 'not-allowed',
+            }}
+          >⏸ Pause (soon)</button>
         </div>
       )}
 

@@ -43,6 +43,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const [agentQuery,   setAgentQuery]   = useState('')
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
   const [commAgent,    setCommAgent]    = useState<string | null>(null)
+  const [commTask,     setCommTask]     = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const agentQueryRef = useRef<HTMLInputElement | null>(null)
 
@@ -164,6 +165,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                 const stateCounts: Record<string, number> = {}
                 for (const a of agents) stateCounts[a.state] = (stateCounts[a.state] ?? 0) + 1
                 const active = agentQuery || stateFilter
+                const hasActiveAgent = agents.some(a => a.state !== 'complete' && a.state !== 'stopped')
                 return (
                   <>
                     <AgentFilterBar
@@ -181,7 +183,15 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                       {filtered.length === 0
                         ? <div style={{ color: '#6b7280', fontSize: 12, padding: 8 }}>No agents match the current filter.</div>
-                        : filtered.map(a => <AgentCard key={a.agent} agent={a} onRespawn={onRespawn} recentAction={recentAction.get(a.agent)} />)
+                        : filtered.map(a => {
+                            const terminal = a.state === 'complete' || a.state === 'stopped'
+                            const dim = hasActiveAgent && terminal
+                            return (
+                              <div key={a.agent} style={{ opacity: dim ? 0.6 : 1, transition: 'opacity 200ms ease' }}>
+                                <AgentCard agent={a} onRespawn={onRespawn} recentAction={recentAction.get(a.agent)} />
+                              </div>
+                            )
+                          })
                       }
                     </div>
                   </>
@@ -205,7 +215,14 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
       {/* Row 3: Comms feed (full width) */}
       <Section title={`Communications (${events.length + messages.length})`} style={{ marginBottom: 20 }}>
-        <CommFeed events={events} messages={messages} agentFilter={commAgent} onClearAgentFilter={() => setCommAgent(null)} />
+        <CommFeed
+          events={events}
+          messages={messages}
+          agentFilter={commAgent}
+          onClearAgentFilter={() => setCommAgent(null)}
+          taskFilter={commTask}
+          onTaskFilterChange={setCommTask}
+        />
       </Section>
 
       {/* Row 4: Reviews */}
@@ -222,6 +239,8 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
           reviewRequests={reviewRequests}
           selectedAgent={commAgent}
           onSelectAgent={id => setCommAgent(prev => prev === id ? null : id)}
+          selectedTask={commTask}
+          onSelectTask={id => setCommTask(prev => prev === id ? null : id)}
         />
       </Section>
 
