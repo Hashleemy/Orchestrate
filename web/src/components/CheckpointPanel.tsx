@@ -1,28 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api/client'
+import { approvalKindColor, approvalKindIcon } from './approvalKind'
 import type { Checkpoint } from '../types'
-
-const KIND_COLOR: Record<string, string> = {
-  package_install:    '#f97316',
-  lockfile_change:    '#eab308',
-  merge_conflict:     '#ef4444',
-  protected_merge:    '#ef4444',
-  major_change:       '#f97316',
-  sensitive_file:     '#ef4444',
-  architectural_block:'#a855f7',
-  milestone:          '#3b82f6',
-}
-
-const KIND_ICON: Record<string, string> = {
-  package_install:    '📦',
-  lockfile_change:    '🔒',
-  merge_conflict:     '⚡',
-  protected_merge:    '🛡',
-  major_change:       '⚠️',
-  sensitive_file:     '🚨',
-  architectural_block:'🏗',
-  milestone:          '🏁',
-}
 
 interface Props {
   checkpoints: Checkpoint[]
@@ -63,8 +42,8 @@ function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint
   const [chosen,  setChosen]  = useState<string | null>(null)
   const [error,   setError]   = useState<string | null>(null)
 
-  const color = KIND_COLOR[cp.kind] ?? '#6b7280'
-  const icon  = KIND_ICON[cp.kind]  ?? '⚠️'
+  const color = approvalKindColor(cp.kind)
+  const icon  = approvalKindIcon(cp.kind)
   const age   = formatAge(cp.created_at)
 
   async function resolve(choice: string) {

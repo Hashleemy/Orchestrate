@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react'
 import type React from 'react'
 import { api } from '../api/client'
+import { approvalKindColor, approvalKindIcon } from './approvalKind'
 import type { Approval, DiffSummary } from '../types'
-
-const TRIGGER_COLOR: Record<string, string> = {
-  package_install:   '#f97316',
-  lockfile_change:   '#eab308',
-  sensitive_file:    '#ef4444',
-  protected_merge:   '#ef4444',
-  major_change:      '#f97316',
-  destructive_delete:'#ef4444',
-  network_deploy:    '#a855f7',
-}
 
 const KIND_COLOR: Record<string, string> = {
   minor:   '#22c55e',
@@ -25,7 +16,8 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
   const [loading, setLoading] = useState(false)
   const [diff, setDiff]       = useState<DiffSummary | null>(null)
 
-  const color    = TRIGGER_COLOR[approval.trigger] ?? '#6b7280'
+  const color    = approvalKindColor(approval.trigger)
+  const icon     = approvalKindIcon(approval.trigger)
   const age      = Math.floor((Date.now() - new Date(approval.created_at).getTime()) / 1000)
   const ageLabel = age < 60 ? `${age}s ago` : `${Math.floor(age / 60)}m ago`
 
@@ -48,19 +40,26 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
 
   if (approval.status !== 'pending') {
     return (
-      <div style={{ border: '1px solid #374151', borderRadius: 8, padding: '10px 14px', background: '#111827', opacity: 0.6 }}>
+      <div style={{ border: '1px solid #374151', borderRadius: 8, padding: '10px 14px', background: '#111827', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>{icon}</span>
         <span style={{ fontSize: 12, color: approval.status === 'approved' ? '#22c55e' : '#ef4444', fontWeight: 600, textTransform: 'uppercase' }}>
           {approval.status}
         </span>
-        <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>{approval.agent} — {approval.detail}</span>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>{approval.agent} — {approval.detail}</span>
       </div>
     )
   }
 
   return (
-    <div style={{ border: `2px solid ${color}`, borderRadius: 8, padding: '12px 16px', background: '#1f2937' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontWeight: 700, color: '#f9fafb', fontSize: 13 }}>{approval.agent}</span>
+    <div style={{
+      border: `1px solid ${color}60`, borderLeft: `4px solid ${color}`,
+      borderRadius: 8, padding: '12px 16px', background: '#1f2937',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{icon}</span>
+          <span style={{ fontWeight: 700, color: '#f9fafb', fontSize: 13 }}>{approval.agent}</span>
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {diff && (
             <span style={{
@@ -70,9 +69,10 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
             }}>{diff.kind}</span>
           )}
           <span style={{
-            background: color, color: '#fff',
+            background: color + '25', color,
+            border: `1px solid ${color}50`,
             borderRadius: 4, padding: '1px 8px',
-            fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           }}>{approval.trigger.replace(/_/g, ' ')}</span>
         </div>
       </div>

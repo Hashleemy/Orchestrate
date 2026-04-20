@@ -496,7 +496,7 @@ acceptance:
 risk: low
 
 ### TASK-120
-status: todo
+status: done
 priority: normal
 type: feature
 title: Show approval trigger icon + color in CheckpointPanel header too
