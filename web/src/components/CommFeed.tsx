@@ -147,6 +147,17 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
 
   items = items.sort((a, b) => b.ts - a.ts).slice(0, maxItems)
 
+  type DedupedItem = FeedItem & { collapsedCount?: number }
+  const deduped: DedupedItem[] = []
+  for (const it of items) {
+    const prev = deduped[deduped.length - 1] as DedupedItem | undefined
+    if (prev && canCollapse(prev, it, starred)) {
+      prev.collapsedCount = (prev.collapsedCount ?? 1) + 1
+    } else {
+      deduped.push({ ...it })
+    }
+  }
+
   const mounted = useRef(false)
   const knownKeys = useRef<Set<string>>(new Set())
   const [flashingKeys, setFlashingKeys] = useState<Set<string>>(new Set())
@@ -198,7 +209,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     setNewSinceScroll(0)
   }
 
-  const itemCount = items.length
+  const itemCount = deduped.length
   useEffect(() => {
     if (cursor >= itemCount) setCursor(itemCount > 0 ? itemCount - 1 : -1)
   }, [itemCount, cursor])
@@ -230,7 +241,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
         e.preventDefault()
         setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
       } else if (e.key === 'Enter' && cursor >= 0 && cursor < itemCount) {
-        const it = items[cursor]
+        const it = deduped[cursor]
         const tid = it.data.task_id
         if (tid) {
           e.preventDefault()
@@ -243,7 +254,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [itemCount, cursor, items, navHovered])
+  }, [itemCount, cursor, deduped, navHovered])
 
   useEffect(() => {
     if (cursor < 0) return
@@ -372,15 +383,16 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
           }}
           style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          {items.map((item, i) => {
+          {deduped.map((item, i) => {
             const k = feedKey(item)
             const flash = flashingKeys.has(k)
             const isStarred = starred.has(k)
             const selected = cursor === i
             const rowRef = (el: HTMLDivElement | null) => { rowRefs.current[i] = el }
+            const count = item.collapsedCount
             return item.kind === 'event'
-              ? <EventRow key={k} rowRef={rowRef} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} />
-              : <MessageRow key={k} rowRef={rowRef} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} />
+              ? <EventRow key={k} rowRef={rowRef} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} />
+              : <MessageRow key={k} rowRef={rowRef} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} />
           })}
         </div>
         {!autoScroll && newSinceScroll > 0 && (
@@ -400,6 +412,21 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   )
 }
 
+function canCollapse(a: FeedItem, b: FeedItem, starredSet: Set<string>): boolean {
+  if (a.kind !== b.kind) return false
+  if (Math.abs(a.ts - b.ts) > 2000) return false
+  const aKey = feedKey(a)
+  const bKey = feedKey(b)
+  if (starredSet.has(aKey) || starredSet.has(bKey)) return false
+  if (a.kind === 'event' && b.kind === 'event') {
+    return a.data.agent === b.data.agent && a.data.type === b.data.type && (a.data.detail ?? '') === (b.data.detail ?? '')
+  }
+  if (a.kind === 'message' && b.kind === 'message') {
+    return a.data.from === b.data.from && a.data.to === b.data.to && a.data.type === b.data.type && (a.data.body ?? '') === (b.data.body ?? '')
+  }
+  return false
+}
+
 function feedKey(item: FeedItem): string {
   if (item.kind === 'event') {
     const d = item.data
@@ -409,7 +436,7 @@ function feedKey(item: FeedItem): string {
   return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
 }
 
-function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void }) {
+function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
     <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
@@ -442,6 +469,7 @@ function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, 
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {renderEventDetail(event)}
       </span>
+      {collapsedCount && collapsedCount > 1 && <DedupeBadge count={collapsedCount} />}
       <CopyRowButton payload={event} label="event" />
     </div>
   )
@@ -463,7 +491,7 @@ function renderEventDetail(event: OrchestratorEvent): ReactNode {
   )
 }
 
-function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void }) {
+function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
     <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
@@ -498,8 +526,23 @@ function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, select
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {message.body}
       </span>
+      {collapsedCount && collapsedCount > 1 && <DedupeBadge count={collapsedCount} />}
       <CopyRowButton payload={message} label="message" />
     </div>
+  )
+}
+
+function DedupeBadge({ count }: { count: number }) {
+  return (
+    <span
+      title={`${count} consecutive duplicate rows collapsed`}
+      style={{
+        background: '#1e293b', color: '#94a3b8',
+        border: '1px solid #334155', borderRadius: 10,
+        padding: '0 6px', fontSize: 10, fontWeight: 700,
+        alignSelf: 'center',
+      }}
+    >×{count}</span>
   )
 }
 

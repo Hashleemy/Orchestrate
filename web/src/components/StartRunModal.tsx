@@ -3,6 +3,8 @@ import { useState } from 'react'
 interface Props {
   onStart: (tasks: string, workerCount: number) => Promise<void>
   onClose: () => void
+  initialTasks?: string
+  initialWorkerCount?: number
 }
 
 const PLACEHOLDER = `# Tasks
@@ -30,9 +32,9 @@ acceptance:
 risk: low
 major_change: no`
 
-export function StartRunModal({ onStart, onClose }: Props) {
-  const [tasks, setTasks] = useState('')
-  const [workerCount, setWorkerCount] = useState(1)
+export function StartRunModal({ onStart, onClose, initialTasks, initialWorkerCount }: Props) {
+  const [tasks, setTasks] = useState(initialTasks ?? '')
+  const [workerCount, setWorkerCount] = useState(initialWorkerCount && initialWorkerCount > 0 ? Math.min(5, initialWorkerCount) : 1)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -97,6 +99,12 @@ export function StartRunModal({ onStart, onClose }: Props) {
         <textarea
           value={tasks}
           onChange={e => setTasks(e.target.value)}
+          onKeyDown={e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !loading) {
+              e.preventDefault()
+              submit()
+            }
+          }}
           placeholder={PLACEHOLDER}
           rows={18}
           style={{
@@ -106,6 +114,9 @@ export function StartRunModal({ onStart, onClose }: Props) {
             padding: 12, resize: 'vertical', outline: 'none',
           }}
         />
+        <div style={{ color: '#6b7280', fontSize: 11, marginTop: 6 }}>
+          Tip: Ctrl+Enter (⌘+Enter on Mac) starts the run.
+        </div>
 
         {err && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>{err}</div>}
 

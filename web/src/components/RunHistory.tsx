@@ -4,6 +4,7 @@ import type { RunRecord } from '../types'
 
 interface Props {
   runs: RunRecord[]
+  onRerun?: (run: RunRecord) => void
 }
 
 type RunStatus = RunRecord['status']
@@ -111,13 +112,14 @@ function downloadAllRunsMarkdown(runs: RunRecord[]) {
   downloadMarkdown(`runs-${new Date().toISOString().slice(0, 10)}.md`, header + body)
 }
 
-function RunRow({ run, expanded, onToggle, selected, onSelect, rowRef }: {
+function RunRow({ run, expanded, onToggle, selected, onSelect, rowRef, onRerun }: {
   run: RunRecord
   expanded: boolean
   onToggle: () => void
   selected?: boolean
   onSelect?: () => void
   rowRef?: (el: HTMLDivElement | null) => void
+  onRerun?: (run: RunRecord) => void
 }) {
   const pct = run.tasks_total > 0 ? Math.round((run.tasks_done / run.tasks_total) * 100) : 0
 
@@ -179,7 +181,7 @@ function RunRow({ run, expanded, onToggle, selected, onSelect, rowRef }: {
               whiteSpace: 'pre-wrap', margin: 0, maxHeight: 200, overflowY: 'auto',
             }}>{run.summary}</pre>
           )}
-          <div>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => downloadRunMarkdown(run)}
               style={{
@@ -187,6 +189,16 @@ function RunRow({ run, expanded, onToggle, selected, onSelect, rowRef }: {
                 borderRadius: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
               }}
             >⬇ Export as Markdown</button>
+            {onRerun && (
+              <button
+                onClick={() => onRerun(run)}
+                title={`Open Start Run prefilled with ${run.workers.length || 1} worker${run.workers.length === 1 ? '' : 's'}`}
+                style={{
+                  background: '#14532d', color: '#86efac', border: '1px solid #16a34a',
+                  borderRadius: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >↻ Rerun</button>
+            )}
           </div>
         </div>
       )}
@@ -203,7 +215,7 @@ function Detail({ label, value, mono }: { label: string; value: string; mono?: b
   )
 }
 
-export function RunHistory({ runs }: Props) {
+export function RunHistory({ runs, onRerun }: Props) {
   const [statusFilter, setStatusFilter] = useState<Set<RunStatus>>(() => loadStatusFilter())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [cursor, setCursor] = useState<number>(-1)
@@ -319,6 +331,7 @@ export function RunHistory({ runs }: Props) {
             selected={cursor === i}
             onSelect={() => setCursor(i)}
             rowRef={(el) => { rowRefs.current[i] = el }}
+            onRerun={onRerun}
           />
         ))
       )}

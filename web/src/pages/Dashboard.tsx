@@ -13,6 +13,7 @@ import { Glyph }            from '../components/Glyph'
 import { SettingsModal }    from '../components/SettingsModal'
 import { StartRunModal }    from '../components/StartRunModal'
 import { TaskBoard }        from '../components/TaskBoard'
+import { toast } from '../components/Toast'
 import { compactMode, dimTerminalAgents, liveSec, useSetting, SETTING_KEYS, setBoolSetting } from '../settings'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
 
@@ -40,6 +41,7 @@ interface Props {
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
   const [showModal,    setShowModal]    = useState(false)
+  const [rerunSeed,    setRerunSeed]    = useState<{ tasks?: string; workerCount?: number } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [agentQuery,   setAgentQuery]   = useState('')
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
@@ -117,7 +119,14 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
   return (
     <div style={{ padding: compact ? 12 : 24, maxWidth: 1600, margin: '0 auto' }}>
-      {showModal && <StartRunModal onStart={onStartRun} onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <StartRunModal
+          onStart={onStartRun}
+          onClose={() => { setShowModal(false); setRerunSeed(null) }}
+          initialTasks={rerunSeed?.tasks}
+          initialWorkerCount={rerunSeed?.workerCount}
+        />
+      )}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Top bar — sticky */}
@@ -166,6 +175,16 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
               cursor: 'pointer',
             }}
           >⤓ Export</button>
+          <button
+            onClick={() => copyRunSnapshot({ agents, events, messages, approvals, tasks, checkpoints, runs, verdicts, reviewRequests })}
+            title="Copy JSON snapshot of the current run to clipboard"
+            style={{
+              background: 'none', color: '#9ca3af',
+              border: '1px solid #374151', borderRadius: 6,
+              padding: '6px 11px', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >⧉ Copy</button>
           <button
             onClick={() => setShowSettings(true)}
             title="Settings"
@@ -309,7 +328,13 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       </div>
 
       {/* Row 6: Run history */}
-      <RunHistory runs={runs} />
+      <RunHistory
+        runs={runs}
+        onRerun={(run) => {
+          setRerunSeed({ workerCount: run.workers.length || 1 })
+          setShowModal(true)
+        }}
+      />
       </>)}
       <SearchPalette
         open={paletteOpen}
@@ -374,7 +399,7 @@ function QuietHero({ onStart, hasTasks }: { onStart: () => void; hasTasks: boole
   )
 }
 
-function exportRunSnapshot(snapshot: {
+type Snapshot = {
   agents: AgentStatus[]
   events: OrchestratorEvent[]
   messages: AgentMessage[]
@@ -384,12 +409,15 @@ function exportRunSnapshot(snapshot: {
   runs: RunRecord[]
   verdicts: ReviewVerdict[]
   reviewRequests: ReviewRequest[]
-}) {
-  const body = {
-    exported_at: new Date().toISOString(),
-    ...snapshot,
-  }
-  const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' })
+}
+
+function snapshotJSON(snapshot: Snapshot): string {
+  const body = { exported_at: new Date().toISOString(), ...snapshot }
+  return JSON.stringify(body, null, 2)
+}
+
+function exportRunSnapshot(snapshot: Snapshot) {
+  const blob = new Blob([snapshotJSON(snapshot)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const a = document.createElement('a')
@@ -399,6 +427,17 @@ function exportRunSnapshot(snapshot: {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+async function copyRunSnapshot(snapshot: Snapshot) {
+  const json = snapshotJSON(snapshot)
+  try {
+    await navigator.clipboard.writeText(json)
+    const kb = Math.max(1, Math.round(json.length / 1024))
+    toast('success', 'Snapshot copied', `${kb} KB on clipboard`)
+  } catch (e) {
+    toast('error', 'Copy failed', String(e))
+  }
 }
 
 const kbdStyle: React.CSSProperties = {

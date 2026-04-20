@@ -24,12 +24,47 @@ interface Props {
 
 const MAX_RESULTS = 12
 const EVENT_HISTORY = 200
+const RECENTS_KEY = 'orchestrate.palette.recents'
+const RECENTS_MAX = 8
+
+type RecentPick =
+  | { kind: 'agent'; id: string; label: string; detail: string; at: number }
+  | { kind: 'task';  id: string; label: string; detail: string; at: number }
+  | { kind: 'event'; agent: string; taskId: string | null; label: string; detail: string; ts: number; at: number }
+
+function loadRecents(): RecentPick[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return arr.slice(0, RECENTS_MAX)
+  } catch { /* ignore */ }
+  return []
+}
+
+function saveRecents(arr: RecentPick[]) {
+  try { localStorage.setItem(RECENTS_KEY, JSON.stringify(arr)) } catch { /* ignore */ }
+}
+
+function pushRecent(r: RecentPick): RecentPick[] {
+  const cur = loadRecents()
+  const dedup = cur.filter(x => {
+    if (x.kind !== r.kind) return true
+    if (r.kind === 'event' && x.kind === 'event') return !(x.agent === r.agent && x.ts === r.ts)
+    if ('id' in r && 'id' in x) return x.id !== r.id
+    return true
+  })
+  const next = [r, ...dedup].slice(0, RECENTS_MAX)
+  saveRecents(next)
+  return next
+}
 
 let sessionQuery = ''
 
 export function SearchPalette({ open, onClose, agents, tasks, events, actions }: Props) {
   const [q, setQState] = useState(() => sessionQuery)
   const [idx, setIdx] = useState(0)
+  const [recents, setRecents] = useState<RecentPick[]>(() => loadRecents())
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   function setQ(v: string) {
@@ -47,18 +82,36 @@ export function SearchPalette({ open, onClose, agents, tasks, events, actions }:
   const results = useMemo<SearchResult[]>(() => {
     const query = q.trim().toLowerCase()
     if (!query) {
-      return [
-        ...agents.slice(0, 4).map<SearchResult>(a => ({
+      const recentResults = recents.map<SearchResult | null>(r => {
+        if (r.kind === 'agent') {
+          if (!agents.some(a => a.agent === r.id)) return null
+          return { kind: 'agent', id: r.id, label: r.label, detail: r.detail }
+        }
+        if (r.kind === 'task') {
+          if (!tasks.some(t => t.id === r.id)) return null
+          return { kind: 'task', id: r.id, label: r.label, detail: r.detail }
+        }
+        return { kind: 'event', agent: r.agent, taskId: r.taskId, label: r.label, detail: r.detail, ts: r.ts }
+      }).filter((x): x is SearchResult => x !== null)
+
+      const seen = new Set<string>()
+      for (const r of recentResults) {
+        if (r.kind === 'agent') seen.add('a|' + r.id)
+        else if (r.kind === 'task') seen.add('t|' + r.id)
+      }
+      const defaults: SearchResult[] = [
+        ...agents.filter(a => !seen.has('a|' + a.agent)).slice(0, 4).map<SearchResult>(a => ({
           kind: 'agent', id: a.agent,
           label: a.agent,
           detail: `${a.state}${a.task_id ? ' · ' + a.task_id : ''}`,
         })),
-        ...tasks.slice(0, 6).map<SearchResult>(t => ({
+        ...tasks.filter(t => !seen.has('t|' + t.id)).slice(0, 6).map<SearchResult>(t => ({
           kind: 'task', id: t.id,
           label: `${t.id} — ${t.title}`,
           detail: `${t.status}${t.owner ? ' · ' + t.owner : ''}`,
         })),
-      ].slice(0, MAX_RESULTS)
+      ]
+      return [...recentResults, ...defaults].slice(0, MAX_RESULTS)
     }
 
     const out: SearchResult[] = []
@@ -99,21 +152,41 @@ export function SearchPalette({ open, onClose, agents, tasks, events, actions }:
       if (out.length >= MAX_RESULTS) break
     }
     return out.slice(0, MAX_RESULTS)
-  }, [q, agents, tasks, events])
+  }, [q, agents, tasks, events, recents])
+
+  const recentCount = q.trim() ? 0 : results.reduce((n, r) => {
+    if (r.kind === 'agent' && recents.some(x => x.kind === 'agent' && x.id === r.id)) return n + 1
+    if (r.kind === 'task'  && recents.some(x => x.kind === 'task'  && x.id === r.id)) return n + 1
+    if (r.kind === 'event' && recents.some(x => x.kind === 'event' && x.agent === r.agent && x.ts === r.ts)) return n + 1
+    return n
+  }, 0)
 
   useEffect(() => { if (idx >= results.length) setIdx(Math.max(0, results.length - 1)) }, [results, idx])
 
   if (!open) return null
 
   function pick(r: SearchResult) {
-    if (r.kind === 'agent') actions.onPickAgent(r.id)
-    else if (r.kind === 'task') {
+    const now = Date.now()
+    if (r.kind === 'agent') {
+      actions.onPickAgent(r.id)
+      setRecents(pushRecent({ kind: 'agent', id: r.id, label: r.label, detail: r.detail, at: now }))
+    } else if (r.kind === 'task') {
       const t = tasks.find(t => t.id === r.id)
-      if (t) actions.onPickTask(t)
+      if (t) {
+        actions.onPickTask(t)
+        setRecents(pushRecent({ kind: 'task', id: r.id, label: r.label, detail: r.detail, at: now }))
+      }
     } else {
       actions.onPickEvent(r)
+      setRecents(pushRecent({ kind: 'event', agent: r.agent, taskId: r.taskId, label: r.label, detail: r.detail, ts: r.ts, at: now }))
     }
     onClose()
+  }
+
+  function clearRecents() {
+    saveRecents([])
+    setRecents([])
+    setIdx(0)
   }
 
   function onKey(e: React.KeyboardEvent) {
@@ -166,7 +239,26 @@ export function SearchPalette({ open, onClose, agents, tasks, events, actions }:
               {q ? 'No matches.' : 'Start typing to search.'}
             </div>
           ) : results.map((r, i) => (
-            <ResultRow key={resultKey(r, i)} result={r} active={i === idx} onHover={() => setIdx(i)} onPick={() => pick(r)} />
+            <div key={resultKey(r, i)}>
+              {!q.trim() && i === 0 && recentCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 2px' }}>
+                  <span style={{ color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent</span>
+                  <button
+                    onClick={clearRecents}
+                    style={{
+                      background: 'none', border: 'none', color: '#475569',
+                      fontSize: 10, cursor: 'pointer', padding: 0, textDecoration: 'underline',
+                    }}
+                  >clear</button>
+                </div>
+              )}
+              {!q.trim() && i === recentCount && recentCount > 0 && i < results.length && (
+                <div style={{ padding: '6px 10px 2px' }}>
+                  <span style={{ color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Suggestions</span>
+                </div>
+              )}
+              <ResultRow result={r} active={i === idx} onHover={() => setIdx(i)} onPick={() => pick(r)} />
+            </div>
           ))}
         </div>
         <div style={{

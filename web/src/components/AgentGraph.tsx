@@ -29,6 +29,14 @@ const ACTION_EVENTS = new Set([
 
 const ACTIVE_WINDOW_MS = 3000
 
+const LEGEND_KEY = 'orchestrate.agentgraph.legend'
+function loadLegendHidden(): boolean {
+  try { return localStorage.getItem(LEGEND_KEY) === 'hidden' } catch { return false }
+}
+function saveLegendHidden(hidden: boolean) {
+  try { localStorage.setItem(LEGEND_KEY, hidden ? 'hidden' : 'shown') } catch { /* ignore */ }
+}
+
 function isStale(a: AgentStatus, now: number): boolean {
   if (a.stale) return true
   if (a.state === 'complete' || a.state === 'stopped') return false
@@ -56,6 +64,7 @@ interface Props {
 
 export function AgentGraph({ agents, events, messages = [], reviewRequests = [], onSelectAgent, selectedAgent, onSelectTask, selectedTask }: Props) {
   const [now, setNow] = useState(Date.now())
+  const [legendHidden, setLegendHidden] = useState<boolean>(loadLegendHidden())
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500)
@@ -245,7 +254,18 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
           onTaskClick={onSelectTask} />
       ))}
 
-      <Legend x={20} y={H - 24} />
+      {!legendHidden && <Legend x={20} y={H - 24} />}
+      <g
+        transform={`translate(${W - 20}, ${H - 20})`}
+        style={{ cursor: 'pointer' }}
+        onClick={() => { const next = !legendHidden; setLegendHidden(next); saveLegendHidden(next) }}
+      >
+        <title>{legendHidden ? 'Show legend' : 'Hide legend'}</title>
+        <rect x={-58} y={-14} width={58} height={20} rx={4} fill="#111827" stroke="#374151" strokeWidth={1} />
+        <text x={-29} y={0} textAnchor="middle" fill="#9ca3af" fontSize={10} fontWeight={600} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {legendHidden ? '◇ Legend' : '◆ Legend'}
+        </text>
+      </g>
     </svg>
     </div>
   )

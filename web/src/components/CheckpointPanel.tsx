@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { approvalKindColor, approvalKindIcon } from './approvalKind'
+import { toast } from './Toast'
 import type { Checkpoint, DiffSummary } from '../types'
 
 const DIFF_KINDS = new Set(['protected_merge', 'major_change', 'lockfile_change'])
@@ -83,6 +84,30 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
 
   const effective = activeKinds.size === 0 ? null : activeKinds
   const filtered = effective ? visiblePending.filter(c => effective.has(c.kind)) : visiblePending
+  const bulkResolvable = filtered.filter(c => (c.next_steps?.length ?? 0) > 0)
+
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState(false)
+
+  async function resolveAll() {
+    setBulkBusy(true)
+    let okCount = 0
+    let failCount = 0
+    for (const cp of bulkResolvable) {
+      const step = cp.next_steps![0]
+      try {
+        await api.resolveCheckpoint(cp.id, step)
+        okCount++
+      } catch (e) {
+        failCount++
+        toast('error', `Failed to resolve ${cp.id}`, String(e).replace(/^Error: /, ''))
+      }
+    }
+    if (okCount > 0) toast('success', `Resolved ${okCount} checkpoint${okCount === 1 ? '' : 's'}`, failCount > 0 ? `${failCount} failed` : undefined)
+    setBulkBusy(false)
+    setBulkConfirm(false)
+    onResolved()
+  }
 
   if (visiblePending.length === 0 && hiddenCount > 0) {
     return (
@@ -129,11 +154,46 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
           <button
             onClick={() => setShowHidden(s => !s)}
             style={{
-              marginLeft: 'auto',
+              marginLeft: hiddenCount > 0 && bulkResolvable.length < 2 ? 'auto' : undefined,
               background: 'transparent', border: '1px solid #4b2005',
               color: '#fb923c', borderRadius: 4, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
             }}
           >{showHidden ? `Hide silenced (${hiddenCount})` : `Show hidden (${hiddenCount})`}</button>
+        )}
+        {bulkResolvable.length >= 2 && (
+          bulkConfirm ? (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#fbbf24' }}>Resolve {bulkResolvable.length} with default choice?</span>
+              <button
+                onClick={resolveAll}
+                disabled={bulkBusy}
+                style={{
+                  background: '#b45309', border: 'none',
+                  color: '#fff', borderRadius: 4, padding: '3px 10px', fontSize: 11, fontWeight: 600,
+                  cursor: bulkBusy ? 'default' : 'pointer', opacity: bulkBusy ? 0.6 : 1,
+                }}
+              >{bulkBusy ? 'Resolving…' : 'Yes, resolve all'}</button>
+              <button
+                onClick={() => setBulkConfirm(false)}
+                disabled={bulkBusy}
+                style={{
+                  background: 'transparent', border: '1px solid #4b2005',
+                  color: '#9a5a2a', borderRadius: 4, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
+                }}
+              >Cancel</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setBulkConfirm(true)}
+              title="Resolve every listed checkpoint with its first (default) next-step"
+              style={{
+                marginLeft: 'auto',
+                background: '#431407', border: '1px solid #b45309',
+                color: '#fdba74', borderRadius: 4, padding: '2px 10px', fontSize: 11, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >Resolve all ({bulkResolvable.length})</button>
+          )
         )}
       </div>
 

@@ -176,6 +176,7 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
           <Row label="Task"   value={agent.task_id    || '—'} copyable={!!agent.task_id} />
           <Row label="Branch" value={agent.branch     || '—'} copyable={!!agent.branch} />
           <Row label="Action" value={agent.last_action || '—'} muted />
+          {agent.cwd && <CdChip path={agent.cwd} />}
         </>
       )}
 
@@ -486,6 +487,37 @@ function MiniTimeline({ events, agent, onFilterAgent }: { events: OrchestratorEv
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function CdChip({ path }: { path: string }) {
+  async function copy() {
+    const cmd = `cd "${path}"`
+    try {
+      await navigator.clipboard.writeText(cmd)
+      toast('success', 'Copied cd command', path)
+    } catch {
+      toast('error', 'Copy failed', 'Clipboard API unavailable')
+    }
+  }
+  return (
+    <div style={{ display: 'flex', gap: 6, fontSize: 12, marginBottom: 2, alignItems: 'center' }}>
+      <span style={{ color: '#6b7280', minWidth: 48 }}>cwd</span>
+      <button
+        onClick={copy}
+        title={`Copy: cd "${path}"`}
+        style={{
+          background: 'transparent', border: '1px solid #334155',
+          color: '#93c5fd', borderRadius: 3,
+          fontSize: 10, fontFamily: 'monospace',
+          padding: '1px 6px', cursor: 'pointer',
+          maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}
+      >cd ↵</button>
+      <span style={{ color: '#6b7280', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={path}>
+        {path.length > 32 ? '…' + path.slice(-30) : path}
+      </span>
     </div>
   )
 }
