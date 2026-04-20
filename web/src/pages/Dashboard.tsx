@@ -6,6 +6,7 @@ import { ApprovalQueue }    from '../components/ApprovalQueue'
 import { CheckpointPanel }  from '../components/CheckpointPanel'
 import { CommFeed }         from '../components/CommFeed'
 import { RepoHeader }       from '../components/RepoHeader'
+import { SearchPalette }    from '../components/SearchPalette'
 import { ReviewPanel }      from '../components/ReviewPanel'
 import { RunHistory }       from '../components/RunHistory'
 import { Glyph }            from '../components/Glyph'
@@ -44,9 +45,11 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
   const [commAgent,    setCommAgent]    = useState<string | null>(null)
   const [commTask,     setCommTask]     = useState<string | null>(null)
+  const [paletteOpen,  setPaletteOpen]  = useState(false)
   const [now, setNow] = useState(Date.now())
   const agentQueryRef = useRef<HTMLInputElement | null>(null)
   const graphRef      = useRef<HTMLDivElement | null>(null)
+  const commFeedRef   = useRef<HTMLDivElement | null>(null)
   const dimTerminal   = useSetting(dimTerminalAgents)
   const compact       = useSetting(compactMode)
 
@@ -59,7 +62,13 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName?.toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return
+      const typing = tag === 'input' || tag === 'textarea' || target?.isContentEditable
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
+        return
+      }
+      if (typing) return
       if (e.key === '/') {
         e.preventDefault()
         agentQueryRef.current?.focus()
@@ -69,6 +78,11 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       if (e.key === 'g') {
         e.preventDefault()
         graphRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+      if (e.key === 's') {
+        e.preventDefault()
+        setPaletteOpen(true)
         return
       }
     }
@@ -254,16 +268,18 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       </Section>
 
       {/* Row 3: Comms feed (full width) */}
-      <Section title={`Communications (${events.length + messages.length})`} style={{ marginBottom: 20 }}>
-        <CommFeed
-          events={events}
-          messages={messages}
-          agentFilter={commAgent}
-          onClearAgentFilter={() => setCommAgent(null)}
-          taskFilter={commTask}
-          onTaskFilterChange={setCommTask}
-        />
-      </Section>
+      <div ref={commFeedRef} style={{ scrollMarginTop: 80 }}>
+        <Section title={`Communications (${events.length + messages.length})`} style={{ marginBottom: 20 }}>
+          <CommFeed
+            events={events}
+            messages={messages}
+            agentFilter={commAgent}
+            onClearAgentFilter={() => setCommAgent(null)}
+            taskFilter={commTask}
+            onTaskFilterChange={setCommTask}
+          />
+        </Section>
+      </div>
 
       {/* Row 4: Reviews */}
       <div style={{ marginBottom: 20 }}>
@@ -289,6 +305,28 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       {/* Row 6: Run history */}
       <RunHistory runs={runs} />
       </>)}
+      <SearchPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        agents={agents}
+        tasks={tasks}
+        events={events}
+        actions={{
+          onPickAgent: (id) => {
+            setCommAgent(id)
+            setTimeout(() => graphRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30)
+          },
+          onPickTask: (t) => {
+            setCommTask(t.id)
+            setTimeout(() => commFeedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30)
+          },
+          onPickEvent: (e) => {
+            setCommAgent(e.agent)
+            if (e.taskId) setCommTask(e.taskId)
+            setTimeout(() => commFeedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30)
+          },
+        }}
+      />
     </div>
   )
 }
