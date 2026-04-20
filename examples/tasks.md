@@ -924,7 +924,7 @@ acceptance:
 risk: low
 
 ### TASK-148
-status: todo
+status: done
 priority: low
 type: feature
 title: Dashboard — compact mode toggle (dense spacing)
@@ -970,7 +970,7 @@ acceptance:
 risk: low
 
 ### TASK-151
-status: todo
+status: done
 priority: normal
 type: feature
 title: SettingsModal — toggle dim-terminal-agents behavior

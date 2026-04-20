@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DEFAULTS, SETTING_KEYS, getIntSetting, setIntSetting } from '../settings'
+import { DEFAULTS, SETTING_KEYS, getBoolSetting, getIntSetting, setBoolSetting, setIntSetting } from '../settings'
 
 interface Props {
   open:    boolean
@@ -9,11 +9,15 @@ interface Props {
 export function SettingsModal({ open, onClose }: Props) {
   const [stale, setStale] = useState(() => getIntSetting(SETTING_KEYS.staleSec, DEFAULTS.staleSec))
   const [live,  setLive]  = useState(() => getIntSetting(SETTING_KEYS.liveSec,  DEFAULTS.liveSec))
+  const [dimTerminal, setDimTerminal] = useState(() => getBoolSetting(SETTING_KEYS.dimTerminal, true))
+  const [compact,     setCompact]     = useState(() => getBoolSetting(SETTING_KEYS.compact,     false))
 
   useEffect(() => {
     if (!open) return
     setStale(getIntSetting(SETTING_KEYS.staleSec, DEFAULTS.staleSec))
     setLive(getIntSetting(SETTING_KEYS.liveSec, DEFAULTS.liveSec))
+    setDimTerminal(getBoolSetting(SETTING_KEYS.dimTerminal, true))
+    setCompact(getBoolSetting(SETTING_KEYS.compact, false))
   }, [open])
 
   useEffect(() => {
@@ -28,12 +32,17 @@ export function SettingsModal({ open, onClose }: Props) {
   function save() {
     setIntSetting(SETTING_KEYS.staleSec, stale)
     setIntSetting(SETTING_KEYS.liveSec, live)
+    setBoolSetting(SETTING_KEYS.dimTerminal, dimTerminal)
+    setBoolSetting(SETTING_KEYS.compact, compact)
+    window.dispatchEvent(new Event('orchestrate-settings-changed'))
     onClose()
   }
 
   function resetDefaults() {
     setStale(DEFAULTS.staleSec)
     setLive(DEFAULTS.liveSec)
+    setDimTerminal(true)
+    setCompact(false)
   }
 
   return (
@@ -82,6 +91,18 @@ export function SettingsModal({ open, onClose }: Props) {
             value={live}
             onChange={setLive}
           />
+          <BoolField
+            label="Dim completed/stopped agents during active runs"
+            help="When on, terminal agents fade so active ones stand out."
+            checked={dimTerminal}
+            onChange={setDimTerminal}
+          />
+          <BoolField
+            label="Compact mode"
+            help="Reduces padding and spacing across the dashboard for denser layout."
+            checked={compact}
+            onChange={setCompact}
+          />
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
@@ -104,6 +125,25 @@ export function SettingsModal({ open, onClose }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+function BoolField({ label, help, checked, onChange }: {
+  label: string; help: string; checked: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        style={{ marginTop: 3, accentColor: '#2563eb' }}
+      />
+      <div>
+        <div style={{ color: '#d1d5db', fontSize: 12, fontWeight: 600 }}>{label}</div>
+        <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>{help}</div>
+      </div>
+    </label>
   )
 }
 

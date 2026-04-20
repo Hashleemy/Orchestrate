@@ -48,7 +48,7 @@ function persistBool(key: string, value: boolean) {
   catch { /* ignore */ }
 }
 
-export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilterAgent }: { agent: AgentStatus; onRespawn?: () => void; recentAction?: boolean; recentEvents?: OrchestratorEvent[]; onFilterAgent?: (agentId: string) => void }) {
+export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilterAgent, compact }: { agent: AgentStatus; onRespawn?: () => void; recentAction?: boolean; recentEvents?: OrchestratorEvent[]; onFilterAgent?: (agentId: string) => void; compact?: boolean }) {
   const [diff, setDiff]         = useState<DiffSummary | null>(null)
   const [diffErr, setDiffErr]   = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
@@ -140,10 +140,10 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
     <div style={{
       border: `2px solid ${dead ? '#7f1d1d' : stale ? '#ef4444' : recentAction ? color : '#374151'}`,
       borderRadius: 8,
-      padding: '12px 16px',
+      padding: compact ? '6px 10px' : '12px 16px',
       background: dead ? '#1a0a0a' : '#1f2937',
-      minWidth: 240,
-      maxWidth: 340,
+      minWidth: compact ? 200 : 240,
+      maxWidth: compact ? 280 : 340,
       opacity: dead ? 0.75 : 1,
       boxShadow: recentAction && !dead ? `0 0 16px ${color}55, 0 0 32px ${color}22` : undefined,
       transition: 'box-shadow 300ms ease, border-color 300ms ease',
@@ -169,11 +169,17 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
         </div>
       </div>
 
-      <Row label="Task"   value={agent.task_id    || '—'} copyable={!!agent.task_id} />
-      <Row label="Branch" value={agent.branch     || '—'} copyable={!!agent.branch} />
-      <Row label="Action" value={agent.last_action || '—'} muted />
+      {compact ? (
+        <Row label="Task" value={agent.task_id || agent.last_action || '—'} muted />
+      ) : (
+        <>
+          <Row label="Task"   value={agent.task_id    || '—'} copyable={!!agent.task_id} />
+          <Row label="Branch" value={agent.branch     || '—'} copyable={!!agent.branch} />
+          <Row label="Action" value={agent.last_action || '—'} muted />
+        </>
+      )}
 
-      {recentEvents && recentEvents.length > 0 && (
+      {!compact && recentEvents && recentEvents.length > 0 && (
         <MiniTimeline events={recentEvents} agent={agent.agent} onFilterAgent={onFilterAgent} />
       )}
 

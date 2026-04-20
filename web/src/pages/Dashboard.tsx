@@ -12,7 +12,7 @@ import { Glyph }            from '../components/Glyph'
 import { SettingsModal }    from '../components/SettingsModal'
 import { StartRunModal }    from '../components/StartRunModal'
 import { TaskBoard }        from '../components/TaskBoard'
-import { liveSec }          from '../settings'
+import { compactMode, dimTerminalAgents, liveSec, useSetting } from '../settings'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
 
 interface Props {
@@ -47,6 +47,8 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const [now, setNow] = useState(Date.now())
   const agentQueryRef = useRef<HTMLInputElement | null>(null)
   const graphRef      = useRef<HTMLDivElement | null>(null)
+  const dimTerminal   = useSetting(dimTerminalAgents)
+  const compact       = useSetting(compactMode)
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500)
@@ -94,7 +96,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1600, margin: '0 auto' }}>
+    <div style={{ padding: compact ? 12 : 24, maxWidth: 1600, margin: '0 auto' }}>
       {showModal && <StartRunModal onStart={onStartRun} onClose={() => setShowModal(false)} />}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
@@ -210,7 +212,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                         ? <div style={{ color: '#6b7280', fontSize: 12, padding: 8 }}>No agents match the current filter.</div>
                         : filtered.map(a => {
                             const terminal = a.state === 'complete' || a.state === 'stopped'
-                            const dim = hasActiveAgent && terminal
+                            const dim = dimTerminal && hasActiveAgent && terminal
                             return (
                               <div key={a.agent} style={{ opacity: dim ? 0.6 : 1, transition: 'opacity 200ms ease' }}>
                                 <AgentCard
@@ -219,6 +221,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
                                   recentAction={recentAction.get(a.agent)}
                                   recentEvents={eventsByAgent.get(a.agent)}
                                   onFilterAgent={id => setCommAgent(prev => prev === id ? null : id)}
+                                  compact={compact}
                                 />
                               </div>
                             )
