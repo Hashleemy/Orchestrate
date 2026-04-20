@@ -1,9 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Glyph } from './Glyph'
 import type { RunRecord } from '../types'
 
 interface Props {
   runs: RunRecord[]
+}
+
+type RunStatus = RunRecord['status']
+const STATUS_OPTIONS: RunStatus[] = ['complete', 'stopped', 'active', 'paused', 'idle']
+const FILTER_KEY = 'orchestrate.runhistory.statusfilter'
+
+function loadStatusFilter(): Set<RunStatus> {
+  try {
+    const raw = window.localStorage?.getItem(FILTER_KEY)
+    if (!raw) return new Set(STATUS_OPTIONS)
+    const arr = JSON.parse(raw) as string[]
+    const valid = arr.filter((s): s is RunStatus => (STATUS_OPTIONS as string[]).includes(s))
+    return new Set(valid.length ? valid : STATUS_OPTIONS)
+  } catch {
+    return new Set(STATUS_OPTIONS)
+  }
+}
+
+function saveStatusFilter(set: Set<RunStatus>) {
+  try { window.localStorage?.setItem(FILTER_KEY, JSON.stringify(Array.from(set))) } catch { /* ignore */ }
 }
 
 function duration(sec: number): string {
@@ -174,6 +194,21 @@ function Detail({ label, value, mono }: { label: string; value: string; mono?: b
 }
 
 export function RunHistory({ runs }: Props) {
+  const [statusFilter, setStatusFilter] = useState<Set<RunStatus>>(() => loadStatusFilter())
+
+  useEffect(() => { saveStatusFilter(statusFilter) }, [statusFilter])
+
+  function toggleStatus(s: RunStatus) {
+    setStatusFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s); else next.add(s)
+      if (next.size === 0) return new Set(STATUS_OPTIONS)
+      return next
+    })
+  }
+
+  function resetFilter() { setStatusFilter(new Set(STATUS_OPTIONS)) }
+
   if (runs.length === 0) {
     return (
       <div style={{
@@ -187,24 +222,70 @@ export function RunHistory({ runs }: Props) {
     )
   }
 
+  const allSelected = statusFilter.size === STATUS_OPTIONS.length
+  const filtered = allSelected ? runs : runs.filter(r => statusFilter.has(r.status))
+  const counts: Record<RunStatus, number> = {
+    complete: 0, stopped: 0, active: 0, paused: 0, idle: 0,
+  }
+  for (const r of runs) counts[r.status] = (counts[r.status] ?? 0) + 1
+
   return (
     <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ color: '#f9fafb', fontWeight: 700, fontSize: 14 }}>Run History</span>
         <span style={{
           background: '#374151', color: '#9ca3af', borderRadius: 10,
           padding: '1px 8px', fontSize: 12,
-        }}>{runs.length}</span>
+        }}>{allSelected ? runs.length : `${filtered.length}/${runs.length}`}</span>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexWrap: 'wrap' }}>
+          {STATUS_OPTIONS.map(s => {
+            const on = statusFilter.has(s)
+            const dim = counts[s] === 0
+            return (
+              <button
+                key={s}
+                onClick={() => toggleStatus(s)}
+                disabled={dim}
+                title={dim ? `No runs with status ${s}` : `Toggle ${s}`}
+                style={{
+                  background: on ? '#0f172a' : 'transparent',
+                  border: `1px solid ${on ? '#2563eb' : '#374151'}`,
+                  color: on ? '#93c5fd' : '#6b7280',
+                  borderRadius: 10, padding: '1px 8px', fontSize: 11, fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  cursor: dim ? 'default' : 'pointer',
+                  opacity: dim ? 0.4 : 1,
+                }}
+              >{s} <span style={{ opacity: 0.6, marginLeft: 2 }}>{counts[s]}</span></button>
+            )
+          })}
+          {!allSelected && (
+            <button
+              onClick={resetFilter}
+              style={{
+                background: 'transparent', border: '1px solid #374151', color: '#9ca3af',
+                borderRadius: 10, padding: '1px 8px', fontSize: 11, cursor: 'pointer',
+              }}
+              title="Show all"
+            >reset</button>
+          )}
+        </div>
         <button
-          onClick={() => downloadAllRunsMarkdown(runs)}
+          onClick={() => downloadAllRunsMarkdown(filtered)}
           style={{
             marginLeft: 'auto',
             background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb',
             borderRadius: 5, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
           }}
-        >⬇ Export all</button>
+        >⬇ Export {allSelected ? 'all' : 'shown'}</button>
       </div>
-      {runs.map(r => <RunRow key={r.id} run={r} />)}
+      {filtered.length === 0 ? (
+        <div style={{ padding: 20, color: '#6b7280', fontSize: 12, textAlign: 'center' }}>
+          No runs match this filter.
+        </div>
+      ) : (
+        filtered.map(r => <RunRow key={r.id} run={r} />)
+      )}
     </div>
   )
 }

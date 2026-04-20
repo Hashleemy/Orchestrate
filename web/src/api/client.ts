@@ -51,6 +51,8 @@ export const api = {
   mergeBranch: (id: string, into = 'main') => postJSON<AgentMergeResult>(`/agents/${encodeURIComponent(id)}/merge`, { into }),
   createTask:  (body: { title: string; priority?: string; risk?: string; owner?: string; depends_on?: string[] }) =>
     postJSON<import('../types').Task>('/tasks', body),
+  updateTaskStatus: (id: string, status: string) =>
+    postJSON<import('../types').Task>(`/tasks/${encodeURIComponent(id)}/status`, { status }),
   stopRun:     () => post('/run/stop'),
 }
 

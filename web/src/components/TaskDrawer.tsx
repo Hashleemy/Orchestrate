@@ -1,7 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, StatusChip } from './chips'
 import { CopyId } from './CopyId'
+import { api } from '../api/client'
+import { toast } from './Toast'
+
+const TASK_STATUS_OPTIONS = [
+  'todo', 'ready', 'in_progress', 'blocked',
+  'awaiting_review', 'awaiting_approval', 'done', 'cancelled',
+] as const
 
 interface Props {
   task: Task | null
@@ -60,7 +67,7 @@ export function TaskDrawer({ task, onClose, events = [], messages = [], onFilter
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <StatusChip status={task.status} />
+          <StatusEditor task={task} />
           <PriorityChip priority={task.priority} />
           <RiskChip risk={task.risk} />
         </div>
@@ -78,6 +85,72 @@ export function TaskDrawer({ task, onClose, events = [], messages = [], onFilter
           Click outside or press Esc to close.
         </div>
       </div>
+    </div>
+  )
+}
+
+function StatusEditor({ task }: { task: Task }) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [value, setValue]     = useState<string>(task.status)
+
+  useEffect(() => { setValue(task.status) }, [task.status, task.id])
+
+  async function save(next: string) {
+    if (next === task.status) { setEditing(false); return }
+    setSaving(true)
+    try {
+      await api.updateTaskStatus(task.id, next)
+      toast('success', `${task.id} → ${next}`)
+      setEditing(false)
+    } catch (e) {
+      toast('error', 'Status update failed', String(e))
+      setValue(task.status)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        title="Change status"
+        style={{ background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer' }}
+      >
+        <StatusChip status={task.status} />
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <select
+        value={value}
+        disabled={saving}
+        onChange={(e) => { const v = e.target.value; setValue(v); save(v) }}
+        autoFocus
+        style={{
+          background: '#0f172a', color: '#e5e7eb',
+          border: '1px solid #334155', borderRadius: 4,
+          padding: '2px 6px', fontSize: 12,
+        }}
+      >
+        {TASK_STATUS_OPTIONS.map(s => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+      {saving && <span style={{ fontSize: 11, color: '#6b7280' }}>saving…</span>}
+      {!saving && (
+        <button
+          onClick={() => { setEditing(false); setValue(task.status) }}
+          style={{
+            background: 'none', border: '1px solid #374151',
+            color: '#9ca3af', borderRadius: 4, padding: '1px 6px',
+            fontSize: 10, cursor: 'pointer',
+          }}
+        >cancel</button>
+      )}
     </div>
   )
 }

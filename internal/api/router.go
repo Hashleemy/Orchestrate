@@ -19,6 +19,7 @@ func (s *Server) registerRoutes() {
 
 	// Task mutations
 	s.mux.HandleFunc("POST /api/tasks", h.CreateTask)
+	s.mux.HandleFunc("POST /api/tasks/{id}/status", h.UpdateTaskStatus)
 
 	// Read endpoints
 	s.mux.HandleFunc("GET /api/agents", h.Agents)

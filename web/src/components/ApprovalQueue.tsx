@@ -51,6 +51,20 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
     onResolved()
   }
 
+  async function handleBulkDeny() {
+    if (minorPending.length === 0) return
+    if (!window.confirm(`Deny ${minorPending.length} minor changes? Agents will need to revise and re-request.`)) return
+    setBulking(true)
+    let ok = 0, fail = 0
+    for (const a of minorPending) {
+      try { await api.deny(a.id); ok++ } catch { fail++ }
+    }
+    setBulking(false)
+    if (fail === 0) toast('success', `Denied ${ok} minor changes`)
+    else toast('warning', `Denied ${ok}`, `${fail} failed`)
+    onResolved()
+  }
+
   if (approvals.length === 0) {
     return (
       <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
@@ -64,7 +78,7 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {minorPending.length >= 2 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
           <button
             onClick={handleBulkApprove}
             disabled={bulking}
@@ -73,7 +87,16 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
               borderRadius: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600,
               cursor: bulking ? 'default' : 'pointer', opacity: bulking ? 0.6 : 1,
             }}
-          >{bulking ? `Approving ${minorPending.length}…` : `Approve all minor (${minorPending.length})`}</button>
+          >{bulking ? `Working ${minorPending.length}…` : `Approve all minor (${minorPending.length})`}</button>
+          <button
+            onClick={handleBulkDeny}
+            disabled={bulking}
+            style={{
+              background: 'transparent', border: '1px solid #991b1b', color: '#fca5a5',
+              borderRadius: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600,
+              cursor: bulking ? 'default' : 'pointer', opacity: bulking ? 0.6 : 1,
+            }}
+          >Deny all minor</button>
           <span style={{ fontSize: 11, color: '#6b7280' }}>Only changes tagged MINOR by the diff check</span>
         </div>
       )}

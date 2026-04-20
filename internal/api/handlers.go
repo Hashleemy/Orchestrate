@@ -349,6 +349,23 @@ func (h *handlers) AgentLogs(w http.ResponseWriter, r *http.Request) {
 	sessions.StreamAgentLog(r.Context(), logPath, w, flusher.Flush)
 }
 
+func (h *handlers) UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Status == "" {
+		writeError(w, http.StatusBadRequest, "status is required")
+		return
+	}
+	task, err := h.orch.UpdateTaskStatus(id, body.Status)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
 func (h *handlers) CreateTask(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title     string   `json:"title"`

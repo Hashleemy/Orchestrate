@@ -84,6 +84,8 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   }
   const [starred, setStarred] = useState<Set<string>>(() => loadStarred())
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [cursor, setCursor] = useState<number>(-1)
+  const rowRefs = useRef<Array<HTMLDivElement | null>>([])
 
   function toggleStar(key: string) {
     setStarred(prev => {
@@ -178,6 +180,49 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     setAutoScroll(true)
     setNewSinceScroll(0)
   }
+
+  const itemCount = items.length
+  useEffect(() => {
+    if (cursor >= itemCount) setCursor(itemCount > 0 ? itemCount - 1 : -1)
+  }, [itemCount, cursor])
+
+  useEffect(() => {
+    function isTypingTarget(t: EventTarget | null): boolean {
+      if (!(t instanceof HTMLElement)) return false
+      const tag = t.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(e.target)) return
+      if (itemCount === 0) return
+      if (e.key === 'j') {
+        e.preventDefault()
+        setCursor(c => Math.min(itemCount - 1, c < 0 ? 0 : c + 1))
+      } else if (e.key === 'k') {
+        e.preventDefault()
+        setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
+      } else if (e.key === 'Enter' && cursor >= 0 && cursor < itemCount) {
+        const it = items[cursor]
+        const tid = it.data.task_id
+        if (tid) {
+          e.preventDefault()
+          setTaskFilter(tid)
+        }
+      } else if (e.key === 'Escape' && cursor >= 0) {
+        e.preventDefault()
+        setCursor(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [itemCount, cursor, items])
+
+  useEffect(() => {
+    if (cursor < 0) return
+    const el = rowRefs.current[cursor]
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [cursor])
 
   const filterBar = (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
@@ -291,13 +336,15 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
           }}
           style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          {items.map((item) => {
+          {items.map((item, i) => {
             const k = feedKey(item)
             const flash = flashingKeys.has(k)
             const isStarred = starred.has(k)
+            const selected = cursor === i
+            const rowRef = (el: HTMLDivElement | null) => { rowRefs.current[i] = el }
             return item.kind === 'event'
-              ? <EventRow key={k} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} />
-              : <MessageRow key={k} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} />
+              ? <EventRow key={k} rowRef={rowRef} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} />
+              : <MessageRow key={k} rowRef={rowRef} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} />
           })}
         </div>
         {!autoScroll && newSinceScroll > 0 && (
@@ -326,16 +373,18 @@ function feedKey(item: FeedItem): string {
   return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
 }
 
-function EventRow({ event, flash, onTaskClick, starred, onToggleStar }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void }) {
+function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
-    <div className="commfeed-row" style={{
+    <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '4px 0 4px 6px', borderBottom: '1px solid #111827',
-      borderLeft: flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
-      background: starred ? '#1a1408' : flash ? `${color}10` : undefined,
+      borderLeft: selected ? '3px solid #38bdf8' : flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
+      background: selected ? '#082f49' : starred ? '#1a1408' : flash ? `${color}10` : undefined,
+      boxShadow: selected ? 'inset 0 0 0 1px #0284c7' : undefined,
       transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
+      cursor: onSelect ? 'pointer' : undefined,
     }}>
       <StarButton starred={starred} onToggle={onToggleStar} />
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>
@@ -377,16 +426,18 @@ function renderEventDetail(event: OrchestratorEvent): ReactNode {
   )
 }
 
-function MessageRow({ message, flash, onTaskClick, starred, onToggleStar }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void }) {
+function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
-    <div className="commfeed-row" style={{
+    <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '5px 0 5px 6px', borderBottom: '1px solid #111827',
-      borderLeft: flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
-      background: starred ? '#1a1408' : flash ? `${color}10` : undefined,
+      borderLeft: selected ? '3px solid #38bdf8' : flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
+      background: selected ? '#082f49' : starred ? '#1a1408' : flash ? `${color}10` : undefined,
+      boxShadow: selected ? 'inset 0 0 0 1px #0284c7' : undefined,
       transition: 'background 600ms ease, border-left-color 600ms ease',
       fontSize: 12,
+      cursor: onSelect ? 'pointer' : undefined,
     }}>
       <StarButton starred={starred} onToggle={onToggleStar} />
       <span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 1 }}>

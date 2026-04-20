@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 type Shortcut = { keys: string[]; description: string }
 
 const SHORTCUTS: Shortcut[] = [
-  { keys: ['N'],   description: 'Add a new task' },
-  { keys: ['/'],   description: 'Focus the agent filter input' },
-  { keys: ['G'],   description: 'Jump to the orchestration graph' },
-  { keys: ['?'],   description: 'Show this cheat sheet' },
-  { keys: ['Esc'], description: 'Close open modal, form, or clear filter' },
+  { keys: ['N'],       description: 'Add a new task' },
+  { keys: ['/'],       description: 'Focus the agent filter input' },
+  { keys: ['G'],       description: 'Jump to the orchestration graph' },
+  { keys: ['J', 'K'],  description: 'Move the communications feed cursor down / up' },
+  { keys: ['Enter'],   description: 'Filter feed to the selected row\'s task' },
+  { keys: ['?'],       description: 'Show this cheat sheet' },
+  { keys: ['Esc'],     description: 'Close open modal, form, or clear filter' },
 ]
 
 export function ShortcutOverlay() {

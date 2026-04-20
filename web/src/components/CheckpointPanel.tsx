@@ -20,10 +20,45 @@ interface Props {
   onResolved:  () => void
 }
 
+const FILTER_KEY = 'orchestrate.checkpoint.kindfilter'
+
+function loadKindFilter(): Set<string> {
+  try {
+    const raw = window.localStorage?.getItem(FILTER_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return new Set(arr.filter(x => typeof x === 'string'))
+  } catch { /* ignore */ }
+  return new Set()
+}
+
+function saveKindFilter(s: Set<string>) {
+  try { window.localStorage?.setItem(FILTER_KEY, JSON.stringify(Array.from(s))) } catch { /* ignore */ }
+}
+
 export function CheckpointPanel({ checkpoints, onResolved }: Props) {
   const pending = checkpoints.filter(c => c.status === 'pending')
 
+  const [activeKinds, setActiveKinds] = useState<Set<string>>(() => loadKindFilter())
+
+  useEffect(() => { saveKindFilter(activeKinds) }, [activeKinds])
+
   if (pending.length === 0) return null
+
+  const kindCounts = new Map<string, number>()
+  for (const cp of pending) kindCounts.set(cp.kind, (kindCounts.get(cp.kind) ?? 0) + 1)
+  const kinds = Array.from(kindCounts.keys()).sort()
+
+  const effective = activeKinds.size === 0 ? null : activeKinds
+  const filtered = effective ? pending.filter(c => effective.has(c.kind)) : pending
+
+  function toggleKind(k: string) {
+    setActiveKinds(prev => {
+      const next = new Set(prev)
+      if (next.has(k)) next.delete(k); else next.add(k)
+      return next
+    })
+  }
 
   return (
     <div style={{
@@ -33,15 +68,52 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
       padding: '16px 20px',
       marginBottom: 24,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18 }}>🛑</span>
         <h2 style={{ margin: 0, color: '#fb923c', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Orchestration Paused — {pending.length} Checkpoint{pending.length !== 1 ? 's' : ''} Require Your Attention
+          Orchestration Paused — {effective ? `${filtered.length}/${pending.length}` : pending.length} Checkpoint{pending.length !== 1 ? 's' : ''} Require Your Attention
         </h2>
       </div>
 
+      {kinds.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {kinds.map(k => {
+            const on = activeKinds.has(k)
+            const color = approvalKindColor(k)
+            return (
+              <button
+                key={k}
+                onClick={() => toggleKind(k)}
+                title={`Toggle ${k}`}
+                style={{
+                  background: on ? color + '30' : 'transparent',
+                  border: `1px solid ${on ? color : '#4b2005'}`,
+                  color: on ? color : '#9a5a2a',
+                  borderRadius: 10, padding: '2px 9px', fontSize: 11, fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                }}
+              >{k.replace(/_/g, ' ')} <span style={{ opacity: 0.7, marginLeft: 2 }}>{kindCounts.get(k)}</span></button>
+            )
+          })}
+          {activeKinds.size > 0 && (
+            <button
+              onClick={() => setActiveKinds(new Set())}
+              style={{
+                background: 'transparent', border: '1px solid #4b2005',
+                color: '#9a5a2a', borderRadius: 10, padding: '2px 9px', fontSize: 11, cursor: 'pointer',
+              }}
+            >show all</button>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {pending.map(cp => (
+        {filtered.length === 0 ? (
+          <div style={{ color: '#9a5a2a', fontSize: 12, fontStyle: 'italic' }}>
+            No pending checkpoints match the current filter.
+          </div>
+        ) : filtered.map(cp => (
           <CheckpointCard key={cp.id} checkpoint={cp} onResolved={onResolved} />
         ))}
       </div>

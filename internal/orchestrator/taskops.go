@@ -15,6 +15,51 @@ func (o *Orchestrator) AgentLogPath(agentID string) string {
 	return filepath.Join(o.cfg.CommsDir, "events", agentID+".jsonl")
 }
 
+// UpdateTaskStatus sets the status of an existing task in tasks.md.
+// Returns the updated task or an error if the ID is unknown or the status invalid.
+func (o *Orchestrator) UpdateTaskStatus(id string, status string) (*models.Task, error) {
+	if id == "" {
+		return nil, fmt.Errorf("task id is required")
+	}
+	if !isValidTaskStatus(status) {
+		return nil, fmt.Errorf("invalid status %q", status)
+	}
+
+	tasksFile := filepath.Join(o.cfg.CommsDir, "tasks", "tasks.md")
+	existing, rules, err := o.readTasksWithRules(tasksFile)
+	if err != nil {
+		return nil, fmt.Errorf("read tasks: %w", err)
+	}
+
+	var updated *models.Task
+	for i := range existing {
+		if existing[i].ID == id {
+			existing[i].Status = models.TaskStatus(status)
+			updated = &existing[i]
+			break
+		}
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("task %s not found", id)
+	}
+
+	content := tasks.SerializeTasks(rules, existing)
+	if err := os.WriteFile(tasksFile, []byte(content), 0644); err != nil {
+		return nil, fmt.Errorf("write tasks.md: %w", err)
+	}
+	return updated, nil
+}
+
+func isValidTaskStatus(s string) bool {
+	switch models.TaskStatus(s) {
+	case models.TaskTodo, models.TaskReady, models.TaskInProgress,
+		models.TaskBlocked, models.TaskAwaitingReview,
+		models.TaskAwaitingApproval, models.TaskDone, models.TaskCancelled:
+		return true
+	}
+	return false
+}
+
 // CreateTask appends a new task to tasks.md and returns the created task.
 // The new task is assigned the next available TASK-NNN ID and starts as "ready".
 func (o *Orchestrator) CreateTask(title, priority, risk, owner string, dependsOn []string) (*models.Task, error) {
