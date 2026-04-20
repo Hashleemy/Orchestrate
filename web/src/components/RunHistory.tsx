@@ -100,9 +100,13 @@ function RunRow({ run }: { run: RunRecord }) {
       <button
         onClick={() => setExpanded(e => !e)}
         style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          width: '100%', background: expanded ? '#0f172a' : 'none', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 14,
           padding: '10px 16px', textAlign: 'left',
+          position: expanded ? 'sticky' : undefined,
+          top: expanded ? 0 : undefined,
+          zIndex: expanded ? 2 : undefined,
+          borderBottom: expanded ? '1px solid #1f2937' : undefined,
         }}
       >
         <span style={{ color: '#6b7280', fontSize: 12, minWidth: 130 }}>
@@ -122,7 +126,10 @@ function RunRow({ run }: { run: RunRecord }) {
       </button>
 
       {expanded && (
-        <div style={{ padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{
+          padding: '10px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+          animation: 'runrow-expand 180ms ease-out',
+        }}>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <Detail label="Run ID" value={run.id} mono />
             <Detail label="Repo" value={run.repo_path} mono />

@@ -1,7 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { approvalKindColor, approvalKindIcon } from './approvalKind'
-import type { Checkpoint } from '../types'
+import type { Checkpoint, DiffSummary } from '../types'
+
+const DIFF_KINDS = new Set(['protected_merge', 'major_change', 'lockfile_change'])
+const DIFF_BADGE_COLOR: Record<string, string> = {
+  minor:   '#22c55e',
+  major:   '#f97316',
+  blocked: '#ef4444',
+}
+
+function extractAgentId(detail: string): string | null {
+  const m = detail.match(/\bagent-[a-z0-9_]+-\d+\b/i)
+  return m ? m[0] : null
+}
 
 interface Props {
   checkpoints: Checkpoint[]
@@ -41,10 +53,19 @@ function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint
   const [loading, setLoading] = useState(false)
   const [chosen,  setChosen]  = useState<string | null>(null)
   const [error,   setError]   = useState<string | null>(null)
+  const [diff,    setDiff]    = useState<DiffSummary | null>(null)
 
   const color = approvalKindColor(cp.kind)
   const icon  = approvalKindIcon(cp.kind)
   const age   = formatAge(cp.created_at)
+  const agentId = DIFF_KINDS.has(cp.kind) ? extractAgentId(cp.detail) : null
+
+  useEffect(() => {
+    if (!agentId) return
+    let cancelled = false
+    api.agentDiff(agentId).then(d => { if (!cancelled) setDiff(d) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [agentId])
 
   async function resolve(choice: string) {
     setLoading(true)
@@ -96,6 +117,8 @@ function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint
         {cp.detail}
       </p>
 
+      {diff && <DiffInline diff={diff} />}
+
       {/* Next steps */}
       {cp.next_steps?.length > 0 && (
         <div>
@@ -131,6 +154,41 @@ function CheckpointCard({ checkpoint: cp, onResolved }: { checkpoint: Checkpoint
 
       {error && (
         <div style={{ marginTop: 8, fontSize: 12, color: '#ef4444' }}>Error: {error}</div>
+      )}
+    </div>
+  )
+}
+
+function DiffInline({ diff }: { diff: DiffSummary }) {
+  return (
+    <div style={{
+      background: '#0f172a', border: '1px solid #374151',
+      borderRadius: 6, padding: '8px 12px', marginBottom: 10,
+    }}>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+        <span style={{
+          background: DIFF_BADGE_COLOR[diff.kind] ?? '#6b7280',
+          color: '#fff', borderRadius: 3,
+          padding: '0 6px', fontSize: 10, fontWeight: 700,
+          textTransform: 'uppercase', marginRight: 8,
+        }}>{diff.kind}</span>
+        {diff.base_ref}..{diff.branch} &nbsp;·&nbsp;
+        {diff.file_count} file{diff.file_count !== 1 ? 's' : ''}&nbsp;
+        <span style={{ color: '#22c55e' }}>+{diff.insertions}</span>&nbsp;
+        <span style={{ color: '#ef4444' }}>−{diff.deletions}</span>
+      </div>
+      {diff.reasons.map((r, i) => (
+        <div key={i} style={{ fontSize: 11, color: '#fbbf24', marginBottom: 2 }}>⚠ {r}</div>
+      ))}
+      {diff.files.length > 0 && (
+        <div style={{ marginTop: 4, maxHeight: 90, overflowY: 'auto' }}>
+          {diff.files.slice(0, 15).map((f, i) => (
+            <div key={i} style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'monospace' }}>{f}</div>
+          ))}
+          {diff.files.length > 15 && (
+            <div style={{ fontSize: 10, color: '#6b7280' }}>…and {diff.files.length - 15} more</div>
+          )}
+        </div>
       )}
     </div>
   )

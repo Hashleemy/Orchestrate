@@ -9,8 +9,10 @@ import { RepoHeader }       from '../components/RepoHeader'
 import { ReviewPanel }      from '../components/ReviewPanel'
 import { RunHistory }       from '../components/RunHistory'
 import { Glyph }            from '../components/Glyph'
+import { SettingsModal }    from '../components/SettingsModal'
 import { StartRunModal }    from '../components/StartRunModal'
 import { TaskBoard }        from '../components/TaskBoard'
+import { liveSec }          from '../settings'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
 
 interface Props {
@@ -37,6 +39,7 @@ interface Props {
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
   const [showModal,    setShowModal]    = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [agentQuery,   setAgentQuery]   = useState('')
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
   const [commAgent,    setCommAgent]    = useState<string | null>(null)
@@ -77,6 +80,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   return (
     <div style={{ padding: 24, maxWidth: 1600, margin: '0 auto' }}>
       {showModal && <StartRunModal onStart={onStartRun} onClose={() => setShowModal(false)} />}
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Top bar — sticky */}
       <div style={{
@@ -114,6 +118,17 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
               }}
             >Stop Run</button>
           )}
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Settings"
+            style={{
+              background: 'none', color: '#9ca3af',
+              border: '1px solid #374151', borderRadius: 6,
+              width: 30, height: 30,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 14, padding: 0,
+            }}
+          >⚙</button>
           <button
             onClick={() => setShowModal(true)}
             style={{
@@ -295,7 +310,7 @@ function Section({ title, children, style }: { title: string; children: React.Re
 
 function LiveIndicator({ lastEventAt, now }: { lastEventAt: number | null | undefined; now: number }) {
   const ageSec = lastEventAt ? Math.floor((now - lastEventAt) / 1000) : null
-  const live = ageSec !== null && ageSec < 10
+  const live = ageSec !== null && ageSec < liveSec()
   const color = live ? '#16a34a' : ageSec === null ? '#6b7280' : '#ef4444'
   const label = live ? 'LIVE' : ageSec === null ? 'IDLE' : 'STALE'
   const tooltip = ageSec === null ? 'Waiting for first SSE event' : `${ageSec}s since last event`

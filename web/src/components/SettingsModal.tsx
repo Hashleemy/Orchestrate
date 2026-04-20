@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react'
+import { DEFAULTS, SETTING_KEYS, getIntSetting, setIntSetting } from '../settings'
+
+interface Props {
+  open:    boolean
+  onClose: () => void
+}
+
+export function SettingsModal({ open, onClose }: Props) {
+  const [stale, setStale] = useState(() => getIntSetting(SETTING_KEYS.staleSec, DEFAULTS.staleSec))
+  const [live,  setLive]  = useState(() => getIntSetting(SETTING_KEYS.liveSec,  DEFAULTS.liveSec))
+
+  useEffect(() => {
+    if (!open) return
+    setStale(getIntSetting(SETTING_KEYS.staleSec, DEFAULTS.staleSec))
+    setLive(getIntSetting(SETTING_KEYS.liveSec, DEFAULTS.liveSec))
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  function save() {
+    setIntSetting(SETTING_KEYS.staleSec, stale)
+    setIntSetting(SETTING_KEYS.liveSec, live)
+    onClose()
+  }
+
+  function resetDefaults() {
+    setStale(DEFAULTS.staleSec)
+    setLive(DEFAULTS.liveSec)
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9500,
+        background: 'rgba(0, 0, 0, 0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#111827', border: '1px solid #374151',
+          borderRadius: 10, padding: '22px 26px',
+          minWidth: 380, maxWidth: 460,
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+          <h2 style={{ margin: 0, color: '#f9fafb', fontSize: 16, fontWeight: 700 }}>Settings</h2>
+          <button
+            onClick={onClose}
+            style={{
+              marginLeft: 'auto',
+              background: 'none', border: '1px solid #374151',
+              color: '#9ca3af', borderRadius: 4,
+              padding: '2px 9px', fontSize: 11, cursor: 'pointer',
+            }}
+          >Esc</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Field
+            label="Heartbeat stale threshold"
+            help="Agents whose last heartbeat is older than this are flagged STALE."
+            suffix="seconds (default 90)"
+            value={stale}
+            onChange={setStale}
+          />
+          <Field
+            label="SSE LIVE indicator threshold"
+            help="The top-bar indicator reads LIVE when an event arrived within this window."
+            suffix="seconds (default 10)"
+            value={live}
+            onChange={setLive}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+          <button
+            onClick={save}
+            style={{
+              background: '#2563eb', border: 'none', color: '#fff',
+              borderRadius: 5, padding: '7px 14px', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >Save</button>
+          <button
+            onClick={resetDefaults}
+            style={{
+              background: 'none', border: '1px solid #374151',
+              color: '#9ca3af', borderRadius: 5,
+              padding: '7px 12px', fontSize: 13, cursor: 'pointer',
+            }}
+          >Reset to defaults</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, help, suffix, value, onChange }: {
+  label: string; help: string; suffix: string
+  value: number; onChange: (n: number) => void
+}) {
+  return (
+    <div>
+      <div style={{ color: '#d1d5db', fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{label}</div>
+      <div style={{ color: '#6b7280', fontSize: 11, marginBottom: 5 }}>{help}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="number"
+          min={1}
+          value={value}
+          onChange={e => onChange(Math.max(1, parseInt(e.target.value || '0', 10) || 1))}
+          style={{
+            background: '#0f172a', border: '1px solid #334155',
+            color: '#e2e8f0', borderRadius: 4,
+            padding: '4px 9px', fontSize: 13, width: 90,
+            fontFamily: 'monospace', outline: 'none',
+          }}
+        />
+        <span style={{ color: '#6b7280', fontSize: 11 }}>{suffix}</span>
+      </div>
+    </div>
+  )
+}

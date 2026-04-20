@@ -636,7 +636,7 @@ acceptance:
 risk: low
 
 ### TASK-129
-status: todo
+status: done
 priority: normal
 type: feature
 title: Task detail drawer on click — show acceptance criteria and dependencies
@@ -652,7 +652,7 @@ acceptance:
 risk: low
 
 ### TASK-130
-status: todo
+status: done
 priority: normal
 type: feature
 title: Highlight stale agents (no heartbeat in 90s) in AgentCard + AgentGraph
@@ -668,7 +668,7 @@ acceptance:
 risk: low
 
 ### TASK-131
-status: todo
+status: done
 priority: normal
 type: feature
 title: CommFeed search bar (free-text filter across event detail + message body)
@@ -683,7 +683,7 @@ acceptance:
 risk: low
 
 ### TASK-132
-status: todo
+status: done
 priority: normal
 type: feature
 title: Checkpoint preview — show diff context for protected_merge checkpoints
@@ -698,7 +698,7 @@ acceptance:
 risk: low
 
 ### TASK-133
-status: todo
+status: done
 priority: low
 type: feature
 title: Toast stacking + auto-dismiss animation polish
@@ -713,7 +713,7 @@ acceptance:
 risk: low
 
 ### TASK-134
-status: todo
+status: done
 priority: normal
 type: feature
 title: Approval queue bulk-approve minor changes
@@ -728,7 +728,7 @@ acceptance:
 risk: low
 
 ### TASK-135
-status: todo
+status: done
 priority: low
 type: feature
 title: RunHistory row expand animation + sticky run header
@@ -742,7 +742,7 @@ acceptance:
 risk: low
 
 ### TASK-136
-status: todo
+status: done
 priority: normal
 type: feature
 title: Settings modal — configure polling intervals + stale thresholds
@@ -758,7 +758,7 @@ acceptance:
 risk: low
 
 ### TASK-137
-status: todo
+status: done
 priority: low
 type: feature
 title: Hover-to-copy for commit hashes in event feed

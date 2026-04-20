@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { staleSec } from '../settings'
 import type { AgentMessage, AgentStatus, OrchestratorEvent, ReviewRequest } from '../types'
 
 const ROLE_COLORS: Record<string, string> = {
@@ -27,6 +28,14 @@ const ACTION_EVENTS = new Set([
 ])
 
 const ACTIVE_WINDOW_MS = 3000
+
+function isStale(a: AgentStatus, now: number): boolean {
+  if (a.stale) return true
+  if (a.state === 'complete' || a.state === 'stopped') return false
+  const ts = new Date(a.timestamp).getTime()
+  if (!ts) return false
+  return (now - ts) > staleSec() * 1000
+}
 
 function roleOf(agentId: string): string {
   const parts = agentId.split('-')
@@ -181,11 +190,13 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
       })}
 
       {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big
+        stale={isStale(coord, now)}
         selected={selectedAgent === coord.agent}
         onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined} />}
 
       {workers.map((w, i) => (
         <AgentNode key={w.agent} agent={w} x={workerXs[i]} y={workerY} active={isActive(w.agent)}
+          stale={isStale(w, now)}
           selected={selectedAgent === w.agent}
           onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined} />
       ))}
@@ -195,7 +206,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   )
 }
 
-function AgentNode({ agent, x, y, active, big, selected, onClick }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; onClick?: () => void }) {
+function AgentNode({ agent, x, y, active, big, selected, stale, onClick }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; onClick?: () => void }) {
   const role = roleOf(agent.agent)
   const fill = ROLE_COLORS[role] ?? ROLE_COLORS.default
   const dead = agent.alive === false && agent.state !== 'complete'
@@ -212,6 +223,11 @@ function AgentNode({ agent, x, y, active, big, selected, onClick }: { agent: Age
     >
       {selected && (
         <circle r={baseR + 10} fill="none" stroke="#fbbf24" strokeWidth={2} strokeDasharray="4 3" opacity={0.9} />
+      )}
+      {stale && !dead && (
+        <circle r={baseR + 6} fill="none" stroke="#f97316" strokeWidth={2} strokeDasharray="2 3" opacity={0.75}>
+          <animate attributeName="opacity" values="0.75;0.35;0.75" dur="1.6s" repeatCount="indefinite" />
+        </circle>
       )}
       {active && (
         <>

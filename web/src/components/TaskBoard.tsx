@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import type { Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
 import { CopyId } from './CopyId'
+import { TaskDrawer } from './TaskDrawer'
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 }
 
@@ -95,6 +96,7 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
   const [sortByPriority, setSortByPriority] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
+  const [openTask, setOpenTask] = useState<Task | null>(null)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -230,6 +232,8 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
         </div>
       </div>
 
+      <TaskDrawer task={openTask} onClose={() => setOpenTask(null)} />
+
       {showForm && <AddTaskForm onDone={handleFormDone} />}
 
       {/* Table */}
@@ -246,7 +250,15 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
             </thead>
             <tbody>
               {sorted.map(t => (
-                <tr key={t.id} style={{ borderBottom: '1px solid #1f2937' }}>
+                <tr
+                  key={t.id}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement
+                    if (target.closest('button')) return
+                    setOpenTask(t)
+                  }}
+                  style={{ borderBottom: '1px solid #1f2937', cursor: 'pointer' }}
+                >
                   <td style={td()}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
                   <td style={td()}>
                     <StatusChip status={t.status} />

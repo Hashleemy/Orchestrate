@@ -19,31 +19,38 @@ export function toast(kind: ToastKind, title: string, body?: string, ttlMs = 400
   listeners.forEach(fn => fn(t))
 }
 
+type Item = Toast & { leaving?: boolean }
+
+const LEAVE_MS = 250
+
 export function ToastHost() {
-  const [items, setItems] = useState<Toast[]>([])
+  const [items, setItems] = useState<Item[]>([])
 
   useEffect(() => {
     const listener: Listener = t => {
-      setItems(prev => [...prev, t])
+      setItems(prev => [...prev, { ...t }])
       if (t.ttlMs > 0) {
-        setTimeout(() => setItems(prev => prev.filter(x => x.id !== t.id)), t.ttlMs)
+        setTimeout(() => beginLeave(t.id), t.ttlMs)
       }
     }
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   }, [])
 
-  function dismiss(id: number) {
-    setItems(prev => prev.filter(x => x.id !== id))
+  function beginLeave(id: number) {
+    setItems(prev => prev.map(x => x.id === id ? { ...x, leaving: true } : x))
+    setTimeout(() => {
+      setItems(prev => prev.filter(x => x.id !== id))
+    }, LEAVE_MS)
   }
 
   return (
     <div style={{
-      position: 'fixed', top: 16, right: 16, zIndex: 9999,
-      display: 'flex', flexDirection: 'column', gap: 8,
+      position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
+      display: 'flex', flexDirection: 'column-reverse', gap: 8,
       maxWidth: 360, pointerEvents: 'none',
     }}>
-      {items.map(t => <ToastCard key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />)}
+      {items.map(t => <ToastCard key={t.id} toast={t} leaving={t.leaving} onDismiss={() => beginLeave(t.id)} />)}
     </div>
   )
 }
@@ -62,7 +69,7 @@ const ICONS: Record<ToastKind, string> = {
   info:    'ℹ',
 }
 
-function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+function ToastCard({ toast, onDismiss, leaving }: { toast: Toast; onDismiss: () => void; leaving?: boolean }) {
   const c = COLORS[toast.kind]
   return (
     <div
@@ -73,7 +80,9 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         color: c.text, fontSize: 13,
         boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
         cursor: 'pointer', pointerEvents: 'auto',
-        animation: 'toast-slide-in 200ms ease-out',
+        animation: leaving
+          ? `toast-fade-out ${LEAVE_MS}ms ease-in forwards`
+          : 'toast-slide-in 220ms ease-out',
         display: 'flex', gap: 10, alignItems: 'flex-start',
       }}
     >

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Glyph } from './Glyph'
+import { CopyId } from './CopyId'
 import type { AgentMessage, OrchestratorEvent } from '../types'
+
+const SHA_RE = /\b([a-f0-9]{7,40})\b/i
 
 interface Props {
   events:   OrchestratorEvent[]
@@ -51,6 +55,7 @@ const MSG_TYPE_COLOR: Record<string, string> = {
 
 export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [search, setSearch] = useState('')
 
   let items: FeedItem[] = [
     ...(typeFilter === 'messages' ? [] : events.map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))),
@@ -61,6 +66,16 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     items = items.filter(it => it.kind === 'event'
       ? it.data.agent === agentFilter
       : it.data.from === agentFilter || it.data.to === agentFilter)
+  }
+
+  const q = search.trim().toLowerCase()
+  if (q) {
+    items = items.filter(it => {
+      if (it.kind === 'event') {
+        return `${it.data.type} ${it.data.detail ?? ''} ${it.data.agent} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
+      }
+      return `${it.data.type} ${it.data.body ?? ''} ${it.data.from} ${it.data.to} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
+    })
   }
 
   items = items.sort((a, b) => b.ts - a.ts).slice(0, maxItems)
@@ -101,6 +116,27 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
 
   const filterBar = (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search communications…"
+        style={{
+          background: '#0f172a', border: '1px solid #334155',
+          color: '#e2e8f0', borderRadius: 4,
+          padding: '3px 9px', fontSize: 12, fontFamily: 'monospace',
+          width: 220, outline: 'none',
+        }}
+      />
+      {q && (
+        <button
+          onClick={() => setSearch('')}
+          style={{
+            background: 'none', border: '1px solid #374151',
+            color: '#9ca3af', borderRadius: 4,
+            padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+          }}
+        >Clear</button>
+      )}
       {(['all', 'events', 'messages'] as TypeFilter[]).map(opt => (
         <button
           key={opt}
@@ -196,9 +232,25 @@ function EventRow({ event, flash }: { event: OrchestratorEvent; flash?: boolean 
         <code style={{ fontSize: 10, color: '#475569' }}>{event.task_id}</code>
       )}
       <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-        {event.detail}
+        {renderEventDetail(event)}
       </span>
     </div>
+  )
+}
+
+function renderEventDetail(event: OrchestratorEvent): ReactNode {
+  const detail = event.detail ?? ''
+  if (event.type !== 'commit' && event.type !== 'push' && event.type !== 'merged') return detail
+  const m = detail.match(SHA_RE)
+  if (!m) return detail
+  const sha = m[1]
+  const idx = m.index ?? 0
+  return (
+    <>
+      {detail.slice(0, idx)}
+      <CopyId value={sha} color="#a78bfa" />
+      {detail.slice(idx + sha.length)}
+    </>
   )
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { CopyId } from './CopyId'
 import { toast } from './Toast'
+import { staleSec } from '../settings'
 import type { AgentPushResult, AgentStatus, DiffSummary } from '../types'
 
 const STATE_COLOR: Record<string, string> = {
@@ -21,12 +22,16 @@ const KIND_COLOR: Record<string, string> = {
   blocked: '#ef4444',
 }
 
-function heartbeatAge(ts: string): { label: string; stale: boolean } {
+function heartbeatAge(ts: string): { label: string; secs: number; stale: boolean; threshold: number } {
   const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
-  const stale = secs > 300
-  if (secs < 60) return { label: `${secs}s ago`, stale }
-  if (secs < 3600) return { label: `${Math.floor(secs / 60)}m ago`, stale }
-  return { label: `${Math.floor(secs / 3600)}h ago`, stale }
+  const threshold = staleSec()
+  const stale = secs > threshold
+  const label = secs < 60
+    ? `${secs}s ago`
+    : secs < 3600
+      ? `${Math.floor(secs / 60)}m ago`
+      : `${Math.floor(secs / 3600)}h ago`
+  return { label, secs, stale, threshold }
 }
 
 function persistedBool(key: string, fallback: boolean): boolean {
@@ -77,7 +82,7 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
 
   const dead = agent.alive === false && agent.state !== 'complete'
   const color = dead ? '#7f1d1d' : (STATE_COLOR[agent.state] ?? '#6b7280')
-  const { label, stale: clientStale } = heartbeatAge(agent.timestamp)
+  const { label, secs: hbSecs, stale: clientStale, threshold: hbThreshold } = heartbeatAge(agent.timestamp)
   const stale = agent.stale ?? clientStale
 
   async function toggleDiff() {
@@ -150,7 +155,10 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
             <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase' }}>DEAD</span>
           )}
           {!dead && stale && (
-            <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>STALE</span>
+            <span
+              title={`No heartbeat in ${hbSecs}s (threshold ${hbThreshold}s)`}
+              style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}
+            >STALE · {hbSecs}s</span>
           )}
           <span style={{
             background: color, color: '#fff',
