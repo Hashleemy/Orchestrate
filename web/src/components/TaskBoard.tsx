@@ -4,6 +4,12 @@ import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
 import { CopyId } from './CopyId'
 import { TaskDrawer } from './TaskDrawer'
+import { toast } from './Toast'
+
+const EDITABLE_STATUSES = [
+  'todo', 'ready', 'in_progress', 'blocked',
+  'awaiting_review', 'awaiting_approval', 'done', 'cancelled',
+] as const
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 }
 
@@ -341,8 +347,8 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
                   }}
                 >
                   <td style={td()}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
-                  <td style={td()}>
-                    <StatusChip status={t.status} />
+                  <td style={td()} onClick={e => e.stopPropagation()}>
+                    <InlineStatusCell task={t} />
                   </td>
                   <td style={td()}>
                     <PriorityChip priority={t.priority} />
@@ -371,6 +377,76 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
 
 function td(): React.CSSProperties {
   return { padding: '7px 10px', verticalAlign: 'middle' }
+}
+
+function InlineStatusCell({ task }: { task: Task }) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!editing) return
+    function onDocClick(e: MouseEvent) {
+      if (!ref.current) return
+      if (!ref.current.contains(e.target as Node)) setEditing(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setEditing(false); e.stopPropagation() }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [editing])
+
+  async function change(next: string) {
+    if (next === task.status) { setEditing(false); return }
+    setSaving(true)
+    try {
+      await api.updateTaskStatus(task.id, next)
+      toast('success', `${task.id} → ${next}`)
+      setEditing(false)
+    } catch (e) {
+      toast('error', 'Status update failed', String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        title="Click to change status"
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+      >
+        <StatusChip status={task.status} />
+      </button>
+    )
+  }
+
+  return (
+    <div ref={ref} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+      <select
+        value={task.status}
+        disabled={saving}
+        autoFocus
+        onChange={e => change(e.target.value)}
+        style={{
+          background: '#0f172a', color: '#e5e7eb',
+          border: '1px solid #334155', borderRadius: 4,
+          padding: '2px 6px', fontSize: 11,
+        }}
+      >
+        {EDITABLE_STATUSES.map(s => (
+          <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+        ))}
+      </select>
+      {saving && <span style={{ fontSize: 10, color: '#6b7280' }}>saving…</span>}
+    </div>
+  )
 }
 
 const BOARD_COLUMNS = ['todo', 'ready', 'in_progress', 'blocked', 'awaiting_review', 'awaiting_approval', 'done', 'cancelled']

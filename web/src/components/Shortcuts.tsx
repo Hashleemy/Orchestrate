@@ -19,6 +19,7 @@ const SHORTCUTS: Shortcut[] = [
 
 export function ShortcutOverlay() {
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState('')
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -39,7 +40,16 @@ export function ShortcutOverlay() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  useEffect(() => { if (!open) setFilter('') }, [open])
+
   if (!open) return null
+
+  const q = filter.trim().toLowerCase()
+  const visible = q
+    ? SHORTCUTS.filter(s =>
+        s.description.toLowerCase().includes(q) ||
+        s.keys.some(k => k.toLowerCase().includes(q)))
+    : SHORTCUTS
 
   return (
     <div
@@ -73,8 +83,26 @@ export function ShortcutOverlay() {
             }}
           >Esc</button>
         </div>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Filter shortcuts…"
+          autoFocus
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: '#0f172a', border: '1px solid #334155',
+            color: '#e2e8f0', borderRadius: 6,
+            padding: '6px 10px', fontSize: 12, outline: 'none',
+            marginBottom: 12,
+          }}
+        />
+        {visible.length === 0 && (
+          <div style={{ color: '#6b7280', fontSize: 12, fontStyle: 'italic', marginBottom: 10 }}>
+            No shortcuts match "{filter}"
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {SHORTCUTS.map((s, i) => (
+          {visible.map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', gap: 4, minWidth: 90 }}>
                 {s.keys.map(k => (

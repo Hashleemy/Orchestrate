@@ -65,6 +65,7 @@ interface Props {
 export function AgentGraph({ agents, events, messages = [], reviewRequests = [], onSelectAgent, selectedAgent, onSelectTask, selectedTask }: Props) {
   const [now, setNow] = useState(Date.now())
   const [legendHidden, setLegendHidden] = useState<boolean>(loadLegendHidden())
+  const [pinned, setPinned] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500)
@@ -151,9 +152,44 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
     el.scrollTo({ left: Math.max(0, Math.min(contentWidth - vw, target)), behavior: 'smooth' })
   }, [selectedAgent, W, positions])
 
+  useEffect(() => {
+    if (!pinned) return
+    if (!positions.has(pinned)) { setPinned(null); return }
+    const pos = positions.get(pinned)!
+    const el = scrollRef.current
+    if (!el) return
+    const vw = el.clientWidth
+    const contentWidth = el.scrollWidth
+    if (contentWidth <= vw) return
+    const scale = contentWidth / W
+    const target = pos.x * scale - vw / 2
+    el.scrollTo({ left: Math.max(0, Math.min(contentWidth - vw, target)), behavior: 'smooth' })
+  }, [pinned, W, positions, agents.length])
+
   const minWidth = W > BASE_W ? W * 0.8 : undefined
 
   return (
+    <div style={{ width: '100%' }}>
+    {pinned && (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '4px 8px', marginBottom: 4,
+        background: '#0f172a', border: '1px solid #334155',
+        borderRadius: 6, fontSize: 11,
+      }}>
+        <span style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📌 Pinned:</span>
+        <span style={{ color: '#e0f2fe', fontFamily: 'monospace' }}>{pinned}</span>
+        <button
+          onClick={() => setPinned(null)}
+          title="Unpin"
+          style={{
+            marginLeft: 'auto', background: 'none', border: '1px solid #334155',
+            color: '#94a3b8', borderRadius: 4,
+            padding: '1px 8px', fontSize: 10, cursor: 'pointer',
+          }}
+        >Unpin</button>
+      </div>
+    )}
     <div
       ref={scrollRef}
       style={{ width: '100%', overflowX: W > BASE_W ? 'auto' : 'visible' }}
@@ -239,18 +275,22 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
       {coord && <AgentNode agent={coord} x={coordX} y={coordY} active={isActive(coord.agent)} big
         stale={isStale(coord, now)}
         selected={selectedAgent === coord.agent}
+        pinned={pinned === coord.agent}
         taskSelected={!!coord.task_id && selectedTask === coord.task_id}
         reviewerOpenCount={reviewerOpenCount.get(coord.agent) ?? 0}
         onClick={onSelectAgent ? () => onSelectAgent(coord.agent) : undefined}
+        onDoubleClick={() => setPinned(p => p === coord.agent ? null : coord.agent)}
         onTaskClick={onSelectTask} />}
 
       {workers.map((w, i) => (
         <AgentNode key={w.agent} agent={w} x={workerXs[i]} y={workerY} active={isActive(w.agent)}
           stale={isStale(w, now)}
           selected={selectedAgent === w.agent}
+          pinned={pinned === w.agent}
           taskSelected={!!w.task_id && selectedTask === w.task_id}
           reviewerOpenCount={reviewerOpenCount.get(w.agent) ?? 0}
           onClick={onSelectAgent ? () => onSelectAgent(w.agent) : undefined}
+          onDoubleClick={() => setPinned(p => p === w.agent ? null : w.agent)}
           onTaskClick={onSelectTask} />
       ))}
 
@@ -268,10 +308,11 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
       </g>
     </svg>
     </div>
+    </div>
   )
 }
 
-function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskClick, taskSelected, reviewerOpenCount }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; taskSelected?: boolean; reviewerOpenCount?: number; onClick?: () => void; onTaskClick?: (taskId: string) => void }) {
+function AgentNode({ agent, x, y, active, big, selected, stale, pinned, onClick, onDoubleClick, onTaskClick, taskSelected, reviewerOpenCount }: { agent: AgentStatus; x: number; y: number; active: boolean; big?: boolean; selected?: boolean; stale?: boolean; pinned?: boolean; taskSelected?: boolean; reviewerOpenCount?: number; onClick?: () => void; onDoubleClick?: () => void; onTaskClick?: (taskId: string) => void }) {
   const role = roleOf(agent.agent)
   const fill = ROLE_COLORS[role] ?? ROLE_COLORS.default
   const dead = agent.alive === false && agent.state !== 'complete'
@@ -284,8 +325,14 @@ function AgentNode({ agent, x, y, active, big, selected, stale, onClick, onTaskC
       transform={`translate(${x},${y})`}
       opacity={dead ? 0.55 : 1}
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      onDoubleClick={onDoubleClick}
+      style={onClick || onDoubleClick ? { cursor: 'pointer' } : undefined}
     >
+      {pinned && (
+        <circle r={baseR + 14} fill="none" stroke="#38bdf8" strokeWidth={2} opacity={0.8}>
+          <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
       {selected && (
         <circle r={baseR + 10} fill="none" stroke="#fbbf24" strokeWidth={2} strokeDasharray="4 3" opacity={0.9} />
       )}

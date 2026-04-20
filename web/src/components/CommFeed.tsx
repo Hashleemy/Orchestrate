@@ -398,14 +398,15 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
         {!autoScroll && newSinceScroll > 0 && (
           <button
             onClick={jumpToNewest}
+            className="commfeed-jump-chip"
             style={{
               position: 'absolute', top: 6, right: 10,
               background: '#2563eb', color: '#fff',
               border: 'none', borderRadius: 14,
               padding: '3px 12px', fontSize: 11, fontWeight: 700,
-              boxShadow: '0 2px 10px rgba(0,0,0,0.4)', cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(37,99,235,0.55)', cursor: 'pointer',
             }}
-          >Jump to newest ({newSinceScroll}) ↑</button>
+          >Jump to latest · ×{newSinceScroll} ↑</button>
         )}
       </div>
     </>

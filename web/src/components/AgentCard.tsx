@@ -148,25 +148,29 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
       boxShadow: recentAction && !dead ? `0 0 16px ${color}55, 0 0 32px ${color}22` : undefined,
       transition: 'box-shadow 300ms ease, border-color 300ms ease',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontWeight: 700, color: '#f9fafb', fontSize: 13 }}>{agent.agent}</span>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {dead && (
-            <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase' }}>DEAD</span>
-          )}
-          {!dead && stale && (
-            <span
-              title={`No heartbeat in ${hbSecs}s (threshold ${hbThreshold}s)`}
-              style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}
-            >STALE · {hbSecs}s</span>
-          )}
-          <span style={{
-            background: color, color: '#fff',
-            borderRadius: 4, padding: '1px 8px',
-            fontSize: 11, fontWeight: 600,
-            textTransform: 'uppercase', letterSpacing: '0.05em',
-          }}>{agent.state}</span>
-        </div>
+      <div style={{
+        display: 'flex',
+        justifyContent: compact ? 'flex-start' : 'space-between',
+        alignItems: 'center',
+        gap: compact ? 8 : 6,
+        marginBottom: compact ? 2 : 8,
+      }}>
+        <span style={{ fontWeight: 700, color: '#f9fafb', fontSize: compact ? 12 : 13 }}>{agent.agent}</span>
+        <span style={{
+          background: color, color: '#fff',
+          borderRadius: 4, padding: compact ? '0 6px' : '1px 8px',
+          fontSize: compact ? 10 : 11, fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}>{agent.state}</span>
+        {dead && (
+          <span style={{ fontSize: 10, color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase' }}>DEAD</span>
+        )}
+        {!dead && stale && (
+          <span
+            title={`No heartbeat in ${hbSecs}s (threshold ${hbThreshold}s)`}
+            style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}
+          >STALE · {hbSecs}s</span>
+        )}
       </div>
 
       {compact ? (

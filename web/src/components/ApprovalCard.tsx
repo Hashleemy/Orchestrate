@@ -102,6 +102,18 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
             borderRadius: 4, padding: '1px 8px',
             fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           }}>{approval.trigger.replace(/_/g, ' ')}</span>
+          <span
+            title={`Pending since ${approval.created_at}`}
+            style={{
+              background: ageSec >= 600 ? '#450a0a' : '#0f172a',
+              color: ageHue,
+              border: `1px solid ${ageSec >= 600 ? '#991b1b' : '#334155'}`,
+              borderRadius: 10, padding: '0 7px',
+              fontSize: 10, fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '0.03em',
+            }}
+          >age {ageLabel}</span>
         </div>
       </div>
 

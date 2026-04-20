@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DEFAULTS, SETTING_KEYS, getBoolSetting, getIntSetting, setBoolSetting, setIntSetting } from '../settings'
+import { toast } from './Toast'
 
 interface Props {
   open:    boolean
@@ -39,10 +40,17 @@ export function SettingsModal({ open, onClose }: Props) {
   }
 
   function resetDefaults() {
+    if (!window.confirm('Reset all dashboard settings to defaults? This affects stale/live thresholds, dim mode, and compact mode.')) return
     setStale(DEFAULTS.staleSec)
     setLive(DEFAULTS.liveSec)
     setDimTerminal(true)
     setCompact(false)
+    setIntSetting(SETTING_KEYS.staleSec, DEFAULTS.staleSec)
+    setIntSetting(SETTING_KEYS.liveSec, DEFAULTS.liveSec)
+    setBoolSetting(SETTING_KEYS.dimTerminal, true)
+    setBoolSetting(SETTING_KEYS.compact, false)
+    window.dispatchEvent(new Event('orchestrate-settings-changed'))
+    toast('success', 'Settings reset', 'Defaults applied')
   }
 
   return (

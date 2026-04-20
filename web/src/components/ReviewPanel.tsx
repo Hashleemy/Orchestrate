@@ -272,6 +272,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const [hovered, setHovered] = useState(false)
   const [expandedSet, setExpandedSet] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<boolean>(() => loadCollapsed())
+  const [workerFilter, setWorkerFilter] = useState<string | null>(null)
 
   useEffect(() => {
     try { localStorage.setItem(REVIEWPANEL_COLLAPSED_KEY, collapsed ? '1' : '0') } catch { /* ignore */ }
@@ -279,7 +280,8 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const cardRefs = useRef<Array<HTMLDivElement | null>>([])
   const mergeFns = useRef<Array<(() => void) | null>>([])
 
-  const groups = groupVerdictsByWorker(verdicts)
+  const allGroups = groupVerdictsByWorker(verdicts)
+  const groups = workerFilter ? allGroups.filter(g => g.worker_id === workerFilter) : allGroups
   const groupCount = groups.length
 
   useEffect(() => {
@@ -427,6 +429,45 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
       {pendingRequests.length > 0 && (
         <div>
           {pendingRequests.map(r => <RequestRow key={r.reviewer_id} req={r} />)}
+        </div>
+      )}
+
+      {/* Worker filter chips */}
+      {allGroups.length > 1 && (
+        <div style={{
+          padding: '8px 12px', borderBottom: '1px solid #1f2937',
+          display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+        }}>
+          <span style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Filter:
+          </span>
+          {allGroups.map(g => {
+            const active = workerFilter === g.worker_id
+            return (
+              <button
+                key={g.worker_id}
+                onClick={() => setWorkerFilter(active ? null : g.worker_id)}
+                style={{
+                  background: active ? '#0c4a6e' : '#0f172a',
+                  color: active ? '#e0f2fe' : '#94a3b8',
+                  border: `1px solid ${active ? '#38bdf8' : '#334155'}`,
+                  borderRadius: 12, padding: '2px 9px',
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'monospace',
+                }}
+                title={active ? 'Click to clear filter' : `Filter to ${g.worker_id}`}
+              >{g.worker_id} · {g.verdicts.length}</button>
+            )
+          })}
+          {workerFilter && (
+            <button
+              onClick={() => setWorkerFilter(null)}
+              style={{
+                background: 'none', border: 'none', color: '#6b7280',
+                fontSize: 11, cursor: 'pointer', padding: '2px 4px',
+              }}
+            >clear ×</button>
+          )}
         </div>
       )}
 
