@@ -311,3 +311,113 @@ acceptance:
   - Escape closes the form
   - Shortcut visible in a small hint near the button
 risk: low
+
+### TASK-108
+status: todo
+priority: normal
+type: refactor
+title: Persist showLogs preference per agent in localStorage
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+acceptance:
+  - Toggling "Logs" on an AgentCard persists state across page reloads
+  - Key is scoped per agent ID
+  - Falls back gracefully when localStorage is unavailable
+risk: low
+
+### TASK-109
+status: todo
+priority: normal
+type: feature
+title: Show last heartbeat ISO timestamp as tooltip on heartbeat age
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+acceptance:
+  - Hovering the heartbeat age shows the full ISO timestamp via title attribute
+  - No layout shift introduced
+risk: low
+
+### TASK-110
+status: todo
+priority: normal
+type: feature
+title: Global "Export All Runs" button in RunHistory
+owner: unassigned
+depends_on: [TASK-105]
+files:
+  - web/src/components/RunHistory.tsx
+acceptance:
+  - Button at top of Run History downloads a single markdown file with all runs
+  - Each run is a section with heading, metadata table, completed tasks, and summary
+  - Works for 0 runs (disabled state) and N runs
+risk: low
+
+### TASK-111
+status: todo
+priority: normal
+type: feature
+title: Dashboard auto-refresh indicator ("live" vs "stale")
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+  - web/src/App.tsx
+acceptance:
+  - Small indicator in top bar shows green "LIVE" dot when SSE is connected
+  - Turns red "STALE" after 10s without any event
+  - Tooltip shows seconds since last event
+risk: low
+
+### TASK-112
+status: todo
+priority: normal
+type: polish
+title: Color-code event types in CommFeed with consistent palette
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Each event type (file_edit, test_run, commit, task_started, ...) has a distinct chip color
+  - Color palette documented in a single map
+  - Unknown event types fall back to a neutral gray
+risk: low
+
+### TASK-113
+status: todo
+priority: normal
+type: feature
+title: Keyboard shortcut "?" to open a cheat sheet overlay
+owner: unassigned
+depends_on: [TASK-107]
+files:
+  - web/src/components/Shortcuts.tsx
+  - web/src/App.tsx
+acceptance:
+  - Pressing ? opens a modal listing all keyboard shortcuts (N, Esc, ?)
+  - Esc closes the overlay
+  - Overlay has backdrop click-to-close
+risk: low
+
+### TASK-114
+status: todo
+priority: normal
+type: refactor
+title: Extract shared chip/badge styles into a single helper module
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/chips.tsx
+  - web/src/components/AgentCard.tsx
+  - web/src/components/TaskBoard.tsx
+  - web/src/components/ReviewPanel.tsx
+acceptance:
+  - New chips.tsx exports StatusChip, PriorityChip, RiskChip components
+  - At least two components migrated to use them
+  - No visual regression
+risk: low
+
