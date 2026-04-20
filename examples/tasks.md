@@ -421,3 +421,110 @@ acceptance:
   - No visual regression
 risk: low
 
+### TASK-115
+status: todo
+priority: normal
+type: feature
+title: Filter tasks by free-text search in title/ID/owner
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/TaskBoard.tsx
+acceptance:
+  - Search input above the task table filters by substring in id, title, owner
+  - Result count shown next to input when active
+  - Clear button resets the filter
+risk: low
+
+### TASK-116
+status: todo
+priority: normal
+type: feature
+title: Sticky top bar on Dashboard (header + pills always visible)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - The Local Agent Orchestrator header + pill row stays visible on scroll
+  - Background uses backdrop-filter blur to avoid text clash
+  - No layout shift on first paint
+risk: low
+
+### TASK-117
+status: todo
+priority: normal
+type: feature
+title: Copy-to-clipboard icons on branch/task IDs
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentCard.tsx
+  - web/src/components/TaskBoard.tsx
+acceptance:
+  - Hovering a branch or task ID reveals a small copy icon
+  - Clicking copies the value to clipboard and toasts "Copied"
+  - Works in HTTPS and HTTP (http uses execCommand fallback)
+risk: low
+
+### TASK-118
+status: todo
+priority: normal
+type: feature
+title: Highlight newly appeared events in CommFeed for 2s
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - New events get a subtle colored left-border flash for 2 seconds after arrival
+  - No flash on initial load — only for events received after mount
+risk: low
+
+### TASK-119
+status: todo
+priority: low
+type: polish
+title: Replace "agent" emoji in Agents empty state with cleaner glyph
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Agents empty-state uses a Lucide-style outline glyph (svg) instead of emoji
+  - Same for other empty states (tasks, runs, comms, approvals, reviews)
+risk: low
+
+### TASK-120
+status: todo
+priority: normal
+type: feature
+title: Show approval trigger icon + color in CheckpointPanel header too
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CheckpointPanel.tsx
+  - web/src/components/ApprovalCard.tsx
+acceptance:
+  - ApprovalCard uses the same kind icon and color as CheckpointPanel
+  - Icon visible in both collapsed and expanded states
+  - Visual consistency across approval-related surfaces
+risk: low
+
+### TASK-121
+status: todo
+priority: normal
+type: feature
+title: Dashboard "Everything quiet" hero when no agents + no pending work
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - When agents.length = 0 AND approvals pending = 0 AND checkpoints pending = 0,
+    show a single centered hero card suggesting "Click + Start Run"
+  - Hides all lower sections to avoid a wall of empty panels
+  - Appears only on initial fresh state, not after a run completes
+risk: low
+
+
