@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { Task } from '../types'
-
-const STATUS_COLOR: Record<string, string> = {
-  todo:               '#6b7280',
-  ready:              '#3b82f6',
-  in_progress:        '#22c55e',
-  blocked:            '#f97316',
-  awaiting_review:    '#eab308',
-  awaiting_approval:  '#f59e0b',
-  done:               '#15803d',
-  cancelled:          '#ef4444',
-}
+import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 }
 
@@ -220,21 +210,17 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
                 <tr key={t.id} style={{ borderBottom: '1px solid #1f2937' }}>
                   <td style={td()}><code style={{ fontSize: 11, color: '#93c5fd' }}>{t.id}</code></td>
                   <td style={td()}>
-                    <StatusBadge status={t.status} />
+                    <StatusChip status={t.status} />
                   </td>
                   <td style={td()}>
-                    <PriorityDot priority={t.priority} />
+                    <PriorityChip priority={t.priority} />
                   </td>
                   <td style={td()}><span style={{ color: '#9ca3af' }}>{t.owner || '—'}</span></td>
                   <td style={{ ...td(), maxWidth: 360 }}>
                     <span style={{ color: '#d1d5db', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                   </td>
                   <td style={td()}>
-                    {t.risk && (
-                      <span style={{ color: t.risk === 'high' ? '#ef4444' : t.risk === 'medium' ? '#f97316' : '#6b7280', fontSize: 11 }}>
-                        {t.risk}
-                      </span>
-                    )}
+                    <RiskChip risk={t.risk} />
                   </td>
                   <td style={td()}>
                     <span style={{ color: '#6b7280', fontSize: 11 }}>
@@ -248,31 +234,6 @@ export function TaskBoard({ tasks, onTaskCreated }: Props) {
         )
       }
     </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span style={{
-      background: STATUS_COLOR[status] ?? '#6b7280',
-      color: '#fff',
-      borderRadius: 4,
-      padding: '1px 8px',
-      fontSize: 11,
-      fontWeight: 600,
-      textTransform: 'uppercase',
-      whiteSpace: 'nowrap',
-    }}>{status.replace(/_/g, ' ')}</span>
-  )
-}
-
-function PriorityDot({ priority }: { priority: string }) {
-  const color = priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f97316' : '#6b7280'
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block' }} />
-      <span style={{ fontSize: 11, color: '#9ca3af' }}>{priority || '—'}</span>
-    </span>
   )
 }
 

@@ -68,16 +68,26 @@ function buildRunMarkdown(run: RunRecord): string {
   return lines.join('\n') + '\n'
 }
 
-function downloadRunMarkdown(run: RunRecord) {
-  const blob = new Blob([buildRunMarkdown(run)], { type: 'text/markdown;charset=utf-8' })
+function downloadMarkdown(filename: string, body: string) {
+  const blob = new Blob([body], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `run-${run.id}.md`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function downloadRunMarkdown(run: RunRecord) {
+  downloadMarkdown(`run-${run.id}.md`, buildRunMarkdown(run))
+}
+
+function downloadAllRunsMarkdown(runs: RunRecord[]) {
+  const header = `# Run History (${runs.length})\n\nExported ${new Date().toISOString()}\n\n`
+  const body = runs.map(buildRunMarkdown).join('\n---\n\n')
+  downloadMarkdown(`runs-${new Date().toISOString().slice(0, 10)}.md`, header + body)
 }
 
 function RunRow({ run }: { run: RunRecord }) {
@@ -177,6 +187,14 @@ export function RunHistory({ runs }: Props) {
           background: '#374151', color: '#9ca3af', borderRadius: 10,
           padding: '1px 8px', fontSize: 12,
         }}>{runs.length}</span>
+        <button
+          onClick={() => downloadAllRunsMarkdown(runs)}
+          style={{
+            marginLeft: 'auto',
+            background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb',
+            borderRadius: 5, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          }}
+        >⬇ Export all</button>
       </div>
       {runs.map(r => <RunRow key={r.id} run={r} />)}
     </div>

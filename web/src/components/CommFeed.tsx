@@ -12,15 +12,25 @@ type FeedItem =
 
 const EVENT_COLOR: Record<string, string> = {
   task_started:       '#3b82f6',
+  task_claimed:       '#60a5fa',
   file_edit:          '#22c55e',
   test_run:           '#06b6d4',
+  test_pass:          '#15803d',
+  test_fail:          '#ef4444',
   commit:             '#8b5cf6',
+  push:               '#a855f7',
+  merged:             '#15803d',
   blocked:            '#f97316',
   unblocked:          '#22c55e',
   approval_requested: '#eab308',
   approval_received:  '#22c55e',
+  approval_denied:    '#ef4444',
   message_sent:       '#9ca3af',
   message_received:   '#9ca3af',
+  review_requested:   '#c084fc',
+  review_complete:    '#16a34a',
+  checkpoint_raised:  '#f97316',
+  checkpoint_resolved:'#22c55e',
   completed:          '#15803d',
   error:              '#ef4444',
 }
@@ -42,7 +52,12 @@ export function CommFeed({ events, messages, maxItems = 120 }: Props) {
   .slice(0, maxItems)
 
   if (items.length === 0) {
-    return <div style={{ color: '#4b5563', fontSize: 13, padding: 4 }}>No communications yet.</div>
+    return (
+      <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 20, marginBottom: 6 }}>💬</div>
+        No communications yet. Events and inter-agent messages will stream here live.
+      </div>
+    )
   }
 
   return (

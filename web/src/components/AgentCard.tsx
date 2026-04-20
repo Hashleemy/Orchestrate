@@ -28,6 +28,20 @@ function heartbeatAge(ts: string): { label: string; stale: boolean } {
   return { label: `${Math.floor(secs / 3600)}h ago`, stale }
 }
 
+function persistedBool(key: string, fallback: boolean): boolean {
+  try {
+    const raw = window.localStorage?.getItem(key)
+    if (raw === '1') return true
+    if (raw === '0') return false
+  } catch { /* localStorage unavailable */ }
+  return fallback
+}
+
+function persistBool(key: string, value: boolean) {
+  try { window.localStorage?.setItem(key, value ? '1' : '0') }
+  catch { /* ignore */ }
+}
+
 export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStatus; onRespawn?: () => void; recentAction?: boolean }) {
   const [diff, setDiff]         = useState<DiffSummary | null>(null)
   const [diffErr, setDiffErr]   = useState<string | null>(null)
@@ -36,9 +50,12 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
   const [pushResult,  setPushResult]  = useState<AgentPushResult | null>(null)
   const [respawning,  setRespawning]  = useState(false)
   const [respawnErr,  setRespawnErr]  = useState<string | null>(null)
-  const [showLogs,    setShowLogs]    = useState(false)
+  const logsKey = `orchestrate.logs.${agent.agent}`
+  const [showLogs,    setShowLogs]    = useState<boolean>(() => persistedBool(logsKey, false))
   const [logLines,    setLogLines]    = useState<string[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { persistBool(logsKey, showLogs) }, [showLogs, logsKey])
 
   useEffect(() => {
     if (!showLogs) return
@@ -166,7 +183,10 @@ export function AgentCard({ agent, onRespawn, recentAction }: { agent: AgentStat
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <div style={{ fontSize: 11, color: stale ? '#ef4444' : '#6b7280' }}>♥ {label}</div>
+        <div
+          title={`Heartbeat: ${agent.timestamp}`}
+          style={{ fontSize: 11, color: stale ? '#ef4444' : '#6b7280', cursor: 'help' }}
+        >♥ {label}</div>
         {diff && !expanded && (
           <span style={{
             background: KIND_COLOR[diff.kind] ?? '#6b7280',

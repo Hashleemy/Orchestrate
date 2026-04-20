@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, openStream } from './api/client'
 import { Dashboard } from './pages/Dashboard'
+import { ShortcutOverlay } from './components/Shortcuts'
 import { ToastHost } from './components/Toast'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from './types'
 
@@ -16,6 +17,7 @@ export function App() {
   const [reviewReqs,  setReviewReqs]  = useState<ReviewRequest[]>([])
   const [repoPath,    setRepoPath]    = useState<string | undefined>(undefined)
   const [error,       setError]       = useState<string | null>(null)
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null)
 
   const loaded = useRef(false)
 
@@ -49,6 +51,7 @@ export function App() {
 
     // Live SSE stream
     return openStream(payload => {
+      setLastEventAt(Date.now())
       if (payload.type === 'agents')      setAgents(payload.data ?? [])
       if (payload.type === 'events')      setEvents(payload.data ?? [])
       if (payload.type === 'approvals')   setApprovals(payload.data ?? [])
@@ -111,6 +114,7 @@ export function App() {
   return (
     <>
     <ToastHost />
+    <ShortcutOverlay />
     <Dashboard
       agents={agents}
       events={events}
@@ -122,6 +126,7 @@ export function App() {
       verdicts={verdicts}
       reviewRequests={reviewReqs}
       repoPath={repoPath}
+      lastEventAt={lastEventAt}
       onChangeRepo={handleChangeRepo}
       onRespawn={handleRespawn}
       onTaskCreated={handleTaskCreated}

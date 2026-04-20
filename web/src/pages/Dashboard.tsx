@@ -23,6 +23,7 @@ interface Props {
   verdicts:              ReviewVerdict[]
   reviewRequests:        ReviewRequest[]
   repoPath?:             string
+  lastEventAt?:          number | null
   onChangeRepo?:         (path: string) => Promise<void>
   onApprovalResolved:    () => void
   onCheckpointResolved:  () => void
@@ -33,7 +34,7 @@ interface Props {
   onTaskCreated:         () => void
 }
 
-export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
+export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
   const [showModal,   setShowModal]   = useState(false)
   const [agentQuery,  setAgentQuery]  = useState('')
   const [stateFilter, setStateFilter] = useState<string | null>(null)
@@ -64,6 +65,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
           Local Agent Orchestrator
         </h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <LiveIndicator lastEventAt={lastEventAt} now={now} />
           <Pill label="Agents"      count={agents.length}            color="#3b82f6" />
           <Pill label="Pending"     count={pending.length}           color={pending.length > 0 ? '#eab308' : '#374151'} />
           <Pill label="Checkpoints" count={pendingCheckpoints.length} color={pendingCheckpoints.length > 0 ? '#ef4444' : '#374151'} />
@@ -174,6 +176,23 @@ function Section({ title, children, style }: { title: string; children: React.Re
     <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 10, padding: 16, ...style }}>
       <h2 style={{ margin: '0 0 12px', color: '#9ca3af', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
       {children}
+    </div>
+  )
+}
+
+function LiveIndicator({ lastEventAt, now }: { lastEventAt: number | null | undefined; now: number }) {
+  const ageSec = lastEventAt ? Math.floor((now - lastEventAt) / 1000) : null
+  const live = ageSec !== null && ageSec < 10
+  const color = live ? '#16a34a' : ageSec === null ? '#6b7280' : '#ef4444'
+  const label = live ? 'LIVE' : ageSec === null ? 'IDLE' : 'STALE'
+  const tooltip = ageSec === null ? 'Waiting for first SSE event' : `${ageSec}s since last event`
+  return (
+    <div title={tooltip} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9ca3af', cursor: 'help' }}>
+      <span style={{
+        width: 8, height: 8, borderRadius: '50%', background: color,
+        boxShadow: live ? `0 0 6px ${color}` : undefined,
+      }} />
+      <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>{label}</span>
     </div>
   )
 }

@@ -313,7 +313,7 @@ acceptance:
 risk: low
 
 ### TASK-108
-status: todo
+status: done
 priority: normal
 type: refactor
 title: Persist showLogs preference per agent in localStorage
@@ -328,7 +328,7 @@ acceptance:
 risk: low
 
 ### TASK-109
-status: todo
+status: done
 priority: normal
 type: feature
 title: Show last heartbeat ISO timestamp as tooltip on heartbeat age
@@ -342,7 +342,7 @@ acceptance:
 risk: low
 
 ### TASK-110
-status: todo
+status: done
 priority: normal
 type: feature
 title: Global "Export All Runs" button in RunHistory
@@ -357,7 +357,7 @@ acceptance:
 risk: low
 
 ### TASK-111
-status: todo
+status: done
 priority: normal
 type: feature
 title: Dashboard auto-refresh indicator ("live" vs "stale")
@@ -373,7 +373,7 @@ acceptance:
 risk: low
 
 ### TASK-112
-status: todo
+status: done
 priority: normal
 type: polish
 title: Color-code event types in CommFeed with consistent palette
@@ -388,7 +388,7 @@ acceptance:
 risk: low
 
 ### TASK-113
-status: todo
+status: done
 priority: normal
 type: feature
 title: Keyboard shortcut "?" to open a cheat sheet overlay
@@ -404,7 +404,7 @@ acceptance:
 risk: low
 
 ### TASK-114
-status: todo
+status: done
 priority: normal
 type: refactor
 title: Extract shared chip/badge styles into a single helper module
