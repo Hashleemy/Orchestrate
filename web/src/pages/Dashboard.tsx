@@ -47,6 +47,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
   const pending = approvals.filter(a => a.status === 'pending')
   const pendingCheckpoints = checkpoints.filter(c => c.status === 'pending')
+  const quiet = agents.length === 0 && pending.length === 0 && pendingCheckpoints.length === 0 && runs.length === 0
 
   const ACTIVE_EVENT_TYPES = new Set(['file_edit', 'test_run', 'commit', 'task_started', 'approval_requested', 'approval_received', 'message_sent', 'message_received'])
   const recentAction = new Map<string, boolean>()
@@ -113,6 +114,9 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       {/* Checkpoint gate — shown above everything when paused */}
       <CheckpointPanel checkpoints={checkpoints} onResolved={onCheckpointResolved} />
 
+      {quiet && <QuietHero onStart={() => setShowModal(true)} hasTasks={tasks.length > 0} />}
+
+      {!quiet && (<>
       {/* Row 1: Agents + Approvals */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Section title={`Agents (${agents.length})`}>
@@ -183,8 +187,52 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
 
       {/* Row 6: Run history */}
       <RunHistory runs={runs} />
+      </>)}
     </div>
   )
+}
+
+function QuietHero({ onStart, hasTasks }: { onStart: () => void; hasTasks: boolean }) {
+  return (
+    <div style={{
+      background: '#111827',
+      border: '1px solid #374151',
+      borderRadius: 12,
+      padding: '56px 24px',
+      marginBottom: 20,
+      textAlign: 'center',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 14,
+    }}>
+      <div style={{ fontSize: 44, lineHeight: 1 }}>✨</div>
+      <h2 style={{ margin: 0, color: '#f9fafb', fontSize: 20, fontWeight: 700 }}>Everything quiet</h2>
+      <p style={{ margin: 0, color: '#9ca3af', fontSize: 14, maxWidth: 460, lineHeight: 1.6 }}>
+        No agents running, nothing pending.{' '}
+        {hasTasks
+          ? 'Your tasks.md is loaded — hit Start Run to spawn a coordinator and begin.'
+          : 'Load a tasks.md into the target repo, or press N to add a task, then click Start Run.'}
+      </p>
+      <button
+        onClick={onStart}
+        style={{
+          background: '#2563eb', color: '#fff', border: 'none',
+          borderRadius: 7, padding: '10px 22px', cursor: 'pointer',
+          fontWeight: 600, fontSize: 14, marginTop: 6,
+        }}
+      >+ Start Run</button>
+      <div style={{ color: '#4b5563', fontSize: 11, marginTop: 6 }}>
+        Press <kbd style={kbdStyle}>?</kbd> for keyboard shortcuts
+      </div>
+    </div>
+  )
+}
+
+const kbdStyle: React.CSSProperties = {
+  fontFamily: 'monospace', fontSize: 10, color: '#9ca3af',
+  border: '1px solid #374151', borderRadius: 3,
+  padding: '1px 5px', background: '#0f172a',
 }
 
 function Section({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {

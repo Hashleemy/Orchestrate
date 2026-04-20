@@ -512,7 +512,7 @@ acceptance:
 risk: low
 
 ### TASK-121
-status: todo
+status: done
 priority: normal
 type: feature
 title: Dashboard "Everything quiet" hero when no agents + no pending work
