@@ -527,4 +527,113 @@ acceptance:
   - Appears only on initial fresh state, not after a run completes
 risk: low
 
+### TASK-122
+status: todo
+priority: normal
+type: feature
+title: Reflect pending approval count in window.title
+owner: unassigned
+depends_on: []
+files:
+  - web/src/App.tsx
+acceptance:
+  - When pending approvals > 0, document.title becomes "(N) Local Agent Orchestrator"
+  - When pending approvals = 0, title is restored to "Local Agent Orchestrator"
+  - Updates live as approvals resolve
+risk: low
+
+### TASK-123
+status: todo
+priority: high
+type: feature
+title: SSE auto-reconnect with exponential backoff
+owner: unassigned
+depends_on: []
+files:
+  - web/src/api/client.ts
+acceptance:
+  - openStream retries on close/error with exponential backoff (1s, 2s, 4s, 8s, capped at 30s)
+  - Resets backoff to 1s on a successful message arrival
+  - Cleanup function cancels pending retries
+risk: low
+
+### TASK-124
+status: todo
+priority: high
+type: feature
+title: React ErrorBoundary wrapping the Dashboard
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/ErrorBoundary.tsx
+  - web/src/App.tsx
+acceptance:
+  - Any uncaught render error shows a friendly error screen with the message and a "Reload" button
+  - Error details are logged to the console
+  - Reload triggers window.location.reload()
+risk: low
+
+### TASK-125
+status: todo
+priority: normal
+type: feature
+title: Click agent in AgentGraph to filter CommFeed to that agent
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/AgentGraph.tsx
+  - web/src/components/CommFeed.tsx
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Clicking a node in AgentGraph sets an agent filter on CommFeed
+  - Active filter shown as a chip above CommFeed with an X to clear
+  - Filter matches events where agent == selected OR messages where from/to == selected
+risk: low
+
+### TASK-126
+status: todo
+priority: normal
+type: feature
+title: CommFeed type filter (all / events / messages)
+owner: unassigned
+depends_on: []
+files:
+  - web/src/components/CommFeed.tsx
+acceptance:
+  - Three chips at top of CommFeed: All / Events / Messages
+  - Active chip highlighted; inactive kinds hidden from the list
+  - Default selection is "All"
+risk: low
+
+### TASK-127
+status: todo
+priority: low
+type: feature
+title: Keyboard shortcut / to focus agent filter input
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Pressing / (when not typing) focuses the agent filter input
+  - Escape while focused blurs the input and clears the filter
+  - Shortcut documented in the ? cheatsheet
+risk: low
+
+### TASK-128
+status: todo
+priority: low
+type: feature
+title: Persist collapsed state of Dashboard sections in localStorage
+owner: unassigned
+depends_on: []
+files:
+  - web/src/pages/Dashboard.tsx
+acceptance:
+  - Each Section can be collapsed via a chevron in its header
+  - Collapsed state persists across reloads (per section title)
+  - Collapsing hides children but keeps the title and count visible
+risk: low
+
+
 
