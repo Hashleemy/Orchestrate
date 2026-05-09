@@ -310,6 +310,7 @@ export function RepoHeader({ agents, tasks, repoPath, onChangeRepo }: Props) {
 
 function deriveRunState(agents: AgentStatus[], tasks: Task[]): string {
   if (agents.length === 0 && tasks.length === 0) return 'idle'
+  if (agents.some(a => a.alive === false && a.state !== 'complete' && a.state !== 'stopped')) return 'dead'
   if (agents.some(a => a.stale)) return 'stale'
   if (tasks.some(t => t.status === 'blocked')) return 'blocked'
   if (agents.some(a => a.state === 'awaiting_approval')) return 'awaiting approval'
@@ -325,6 +326,7 @@ const STATE_COLORS: Record<string, { bg: string; text: string }> = {
   blocked:           { bg: '#431407', text: '#f97316' },
   'awaiting approval': { bg: '#451a03', text: '#fbbf24' },
   stale:             { bg: '#450a0a', text: '#ef4444' },
+  dead:              { bg: '#450a0a', text: '#f87171' },
   complete:          { bg: '#052e16', text: '#4ade80' },
 }
 

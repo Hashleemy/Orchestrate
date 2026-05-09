@@ -51,13 +51,25 @@ func readFile(path string) ([]Message, error) {
 
 		if line == "---" {
 			if !inFrontmatter && current == nil {
+				// Start of first message in file
 				inFrontmatter = true
 				current = &Message{}
 				bodyLines = nil
 				continue
 			}
 			if inFrontmatter {
+				// End of frontmatter
 				inFrontmatter = false
+				continue
+			}
+			// --- encountered while accumulating a body: finalize current message
+			// and start new frontmatter block (supports multiple messages per file).
+			if current != nil {
+				current.Body = strings.TrimSpace(strings.Join(bodyLines, "\n"))
+				messages = append(messages, *current)
+				current = &Message{}
+				bodyLines = nil
+				inFrontmatter = true
 				continue
 			}
 		}

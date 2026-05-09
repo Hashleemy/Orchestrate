@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { compactMode, useSetting } from '../settings'
 import { Glyph } from './Glyph'
 import { CopyId } from './CopyId'
 import { toast } from './Toast'
@@ -86,6 +87,7 @@ const MSG_TYPE_COLOR: Record<string, string> = {
 }
 
 export function CommFeed({ events, messages, maxItems = 120, agentFilter = null, onClearAgentFilter, taskFilter: taskFilterProp, onTaskFilterChange }: Props) {
+  const compact = useSetting(compactMode)
   const [typeFilter, setTypeFilterState] = useState<TypeFilter>(() => loadTypeFilter())
   const setTypeFilter = (v: TypeFilter) => { saveTypeFilter(v); setTypeFilterState(v) }
   const [search, setSearch] = useState('')
@@ -355,14 +357,21 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
   )
 
   if (items.length === 0) {
+    const emptyMsg = agentFilter
+      ? `No communications for ${agentFilter} yet.`
+      : taskFilter
+        ? `No communications for ${taskFilter} yet.`
+        : q
+          ? `No results for "${q}".`
+          : typeFilter === 'starred'
+            ? 'No starred items yet. Click ☆ on any row to star it.'
+            : 'No communications yet. Events and inter-agent messages will stream here live.'
     return (
       <>
         {filterBar}
         <div style={{ color: '#6b7280', fontSize: 13, padding: '12px 4px', lineHeight: 1.6 }}>
           <div style={{ marginBottom: 8 }}><Glyph name="comms" size={22} /></div>
-          {agentFilter
-            ? `No communications for ${agentFilter} yet.`
-            : 'No communications yet. Events and inter-agent messages will stream here live.'}
+          {emptyMsg}
         </div>
       </>
     )
@@ -391,8 +400,8 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
             const rowRef = (el: HTMLDivElement | null) => { rowRefs.current[i] = el }
             const count = item.collapsedCount
             return item.kind === 'event'
-              ? <EventRow key={k} rowRef={rowRef} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} />
-              : <MessageRow key={k} rowRef={rowRef} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} />
+              ? <EventRow key={k} rowRef={rowRef} event={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} compact={compact} />
+              : <MessageRow key={k} rowRef={rowRef} message={item.data} flash={flash} onTaskClick={setTaskFilter} starred={isStarred} onToggleStar={() => toggleStar(k)} selected={selected} onSelect={() => setCursor(i)} collapsedCount={count} compact={compact} />
           })}
         </div>
         {!autoScroll && newSinceScroll > 0 && (
@@ -437,12 +446,12 @@ function feedKey(item: FeedItem): string {
   return `m|${d.from}|${d.to}|${d.timestamp}|${d.body ?? ''}`
 }
 
-function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number }) {
+function EventRow({ event, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount, compact }: { event: OrchestratorEvent; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number; compact?: boolean }) {
   const color = EVENT_COLOR[event.type] ?? '#6b7280'
   return (
     <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
-      padding: '4px 0 4px 6px', borderBottom: '1px solid #111827',
+      padding: compact ? '2px 0 2px 6px' : '4px 0 4px 6px', borderBottom: '1px solid #111827',
       borderLeft: selected ? '3px solid #38bdf8' : flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
       background: selected ? '#082f49' : starred ? '#1a1408' : flash ? `${color}10` : undefined,
       boxShadow: selected ? 'inset 0 0 0 1px #0284c7' : undefined,
@@ -492,12 +501,12 @@ function renderEventDetail(event: OrchestratorEvent): ReactNode {
   )
 }
 
-function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number }) {
+function MessageRow({ message, flash, onTaskClick, starred, onToggleStar, selected, onSelect, rowRef, collapsedCount, compact }: { message: AgentMessage; flash?: boolean; onTaskClick?: (id: string) => void; starred?: boolean; onToggleStar?: () => void; selected?: boolean; onSelect?: () => void; rowRef?: (el: HTMLDivElement | null) => void; collapsedCount?: number; compact?: boolean }) {
   const color = MSG_TYPE_COLOR[message.type] ?? '#6b7280'
   return (
     <div ref={rowRef} onClick={onSelect} className="commfeed-row" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
-      padding: '5px 0 5px 6px', borderBottom: '1px solid #111827',
+      padding: compact ? '2px 0 2px 6px' : '5px 0 5px 6px', borderBottom: '1px solid #111827',
       borderLeft: selected ? '3px solid #38bdf8' : flash ? `3px solid ${color}` : starred ? '3px solid #eab308' : '3px solid transparent',
       background: selected ? '#082f49' : starred ? '#1a1408' : flash ? `${color}10` : undefined,
       boxShadow: selected ? 'inset 0 0 0 1px #0284c7' : undefined,

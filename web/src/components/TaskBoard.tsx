@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { compactMode, useSetting } from '../settings'
 import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, STATUS_COLOR, StatusChip } from './chips'
 import { CopyId } from './CopyId'
@@ -104,6 +105,7 @@ function AddTaskForm({ onDone }: { onDone: () => void }) {
 }
 
 export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], onFilterFeedToTask }: Props) {
+  const compact = useSetting(compactMode)
   const [filterStatus, setFilterStatusState] = useState<string>(() => {
     try { return localStorage.getItem(FILTER_STATUS_KEY) ?? 'all' } catch { return 'all' }
   })
@@ -338,11 +340,11 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
       ) : sorted.length === 0
         ? <div style={{ color: '#4b5563', fontSize: 13, padding: 4 }}>No tasks match the current filter.</div>
         : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: compact ? 12 : 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #374151' }}>
                 {['ID', 'Status', 'Priority', 'Owner', 'Title', 'Risk', 'Depends On'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '6px 10px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: compact ? '4px 8px' : '6px 10px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -364,21 +366,21 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
                     boxShadow: cursor === i ? 'inset 3px 0 0 #38bdf8' : undefined,
                   }}
                 >
-                  <td style={td()}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
-                  <td style={td()} onClick={e => e.stopPropagation()}>
+                  <td style={td(compact)}><span style={{ fontSize: 11 }}><CopyId value={t.id} color="#93c5fd" /></span></td>
+                  <td style={td(compact)} onClick={e => e.stopPropagation()}>
                     <InlineStatusCell task={t} />
                   </td>
-                  <td style={td()}>
+                  <td style={td(compact)}>
                     <PriorityChip priority={t.priority} />
                   </td>
-                  <td style={td()}><span style={{ color: '#9ca3af' }}>{t.owner || '—'}</span></td>
-                  <td style={{ ...td(), maxWidth: 360 }}>
+                  <td style={td(compact)}><span style={{ color: '#9ca3af' }}>{t.owner || '—'}</span></td>
+                  <td style={{ ...td(compact), maxWidth: 360 }}>
                     <span style={{ color: '#d1d5db', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                   </td>
-                  <td style={td()}>
+                  <td style={td(compact)}>
                     <RiskChip risk={t.risk} />
                   </td>
-                  <td style={td()}>
+                  <td style={td(compact)}>
                     <span style={{ color: '#6b7280', fontSize: 11 }}>
                       {t.depends_on?.length ? t.depends_on.join(', ') : '—'}
                     </span>
@@ -393,8 +395,8 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
   )
 }
 
-function td(): React.CSSProperties {
-  return { padding: '7px 10px', verticalAlign: 'middle' }
+function td(compact?: boolean): React.CSSProperties {
+  return { padding: compact ? '4px 8px' : '7px 10px', verticalAlign: 'middle' }
 }
 
 function InlineStatusCell({ task }: { task: Task }) {

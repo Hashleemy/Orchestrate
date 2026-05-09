@@ -54,6 +54,7 @@ function saveHidden(s: Set<string>) {
 
 export function CheckpointPanel({ checkpoints, onResolved }: Props) {
   const pending = checkpoints.filter(c => c.status === 'pending')
+  const pendingIdStr = pending.map(p => p.id).join(',')
 
   const [activeKinds, setActiveKinds] = useState<Set<string>>(() => loadKindFilter())
   const [hidden, setHidden] = useState<Set<string>>(() => loadHidden())
@@ -63,15 +64,17 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
   useEffect(() => { saveHidden(hidden) }, [hidden])
 
   useEffect(() => {
-    const pendingIds = new Set(pending.map(p => p.id))
-    const next = new Set<string>()
-    let changed = false
-    for (const id of hidden) {
-      if (pendingIds.has(id)) next.add(id)
-      else changed = true
-    }
-    if (changed) setHidden(next)
-  }, [pending, hidden])
+    const pendingIds = new Set(pendingIdStr.split(',').filter(Boolean))
+    setHidden(prev => {
+      let changed = false
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (pendingIds.has(id)) next.add(id)
+        else changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [pendingIdStr])
 
   if (pending.length === 0) return null
 

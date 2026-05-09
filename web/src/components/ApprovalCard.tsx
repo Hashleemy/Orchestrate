@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type React from 'react'
 import { api } from '../api/client'
 import { approvalKindColor, approvalKindIcon } from './approvalKind'
+import { toast } from './Toast'
 import type { Approval, DiffSummary } from '../types'
 
 const KIND_COLOR: Record<string, string> = {
@@ -61,6 +62,8 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
       if (action === 'approve') await api.approve(approval.id)
       else await api.deny(approval.id)
       onResolved()
+    } catch (e) {
+      toast('error', `${action === 'approve' ? 'Approve' : 'Deny'} failed`, String(e).replace(/^Error: /, ''))
     } finally {
       setLoading(false)
     }

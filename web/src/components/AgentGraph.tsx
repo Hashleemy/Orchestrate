@@ -138,6 +138,7 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   }
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const agentLayout = agents.map(a => a.agent).join(',')
 
   useEffect(() => {
     if (!selectedAgent) return
@@ -150,7 +151,8 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
     const scale = contentWidth / W
     const target = pos.x * scale - vw / 2
     el.scrollTo({ left: Math.max(0, Math.min(contentWidth - vw, target)), behavior: 'smooth' })
-  }, [selectedAgent, W, positions])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent, agentLayout])
 
   useEffect(() => {
     if (!pinned) return
@@ -164,7 +166,8 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
     const scale = contentWidth / W
     const target = pos.x * scale - vw / 2
     el.scrollTo({ left: Math.max(0, Math.min(contentWidth - vw, target)), behavior: 'smooth' })
-  }, [pinned, W, positions, agents.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinned, agentLayout])
 
   const minWidth = W > BASE_W ? W * 0.8 : undefined
 

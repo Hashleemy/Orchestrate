@@ -45,7 +45,10 @@ func WorktreeExists(repoPath, worktreePath string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(out), "worktree "+worktreePath)
+	// Normalize to forward slashes: git on Windows may output either separator.
+	normalize := func(p string) string { return strings.ReplaceAll(p, `\`, "/") }
+	outNorm := normalize(string(out))
+	return strings.Contains(outNorm, "worktree "+normalize(worktreePath))
 }
 
 // ReuseOrCreate reuses an existing worktree if it is already registered,

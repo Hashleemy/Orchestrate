@@ -217,6 +217,7 @@ function Detail({ label, value, mono }: { label: string; value: string; mono?: b
 
 export function RunHistory({ runs, onRerun }: Props) {
   const [statusFilter, setStatusFilter] = useState<Set<RunStatus>>(() => loadStatusFilter())
+  const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [cursor, setCursor] = useState<number>(-1)
   const [hovered, setHovered] = useState(false)
@@ -257,7 +258,19 @@ export function RunHistory({ runs, onRerun }: Props) {
   }
 
   const allSelected = statusFilter.size === STATUS_OPTIONS.length
-  const filtered = allSelected ? runs : runs.filter(r => statusFilter.has(r.status))
+  const sorted = [...runs].sort((a, b) =>
+    new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+  )
+  const q = search.trim().toLowerCase()
+  const statusFiltered = allSelected ? sorted : sorted.filter(r => statusFilter.has(r.status))
+  const filtered = q
+    ? statusFiltered.filter(r =>
+        r.repo_path.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q) ||
+        r.workers.some(w => w.toLowerCase().includes(q)) ||
+        (r.summary ?? '').toLowerCase().includes(q)
+      )
+    : statusFiltered
   const counts: Record<RunStatus, number> = {
     complete: 0, stopped: 0, active: 0, paused: 0, idle: 0,
   }
@@ -274,8 +287,19 @@ export function RunHistory({ runs, onRerun }: Props) {
         <span style={{
           background: '#374151', color: '#9ca3af', borderRadius: 10,
           padding: '1px 8px', fontSize: 12,
-        }}>{allSelected ? runs.length : `${filtered.length}/${runs.length}`}</span>
-        <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexWrap: 'wrap' }}>
+        }}>{filtered.length < runs.length ? `${filtered.length}/${runs.length}` : runs.length}</span>
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setCursor(-1) }}
+          onKeyDown={e => { if (e.key === 'Escape') setSearch('') }}
+          placeholder="Search repo, agent, summary…"
+          style={{
+            background: '#111827', border: '1px solid #374151', borderRadius: 5,
+            color: '#d1d5db', fontSize: 11, padding: '3px 9px', fontFamily: 'inherit',
+            width: 200, outline: 'none',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {STATUS_OPTIONS.map(s => {
             const on = statusFilter.has(s)
             const dim = counts[s] === 0
@@ -297,9 +321,9 @@ export function RunHistory({ runs, onRerun }: Props) {
               >{s} <span style={{ opacity: 0.6, marginLeft: 2 }}>{counts[s]}</span></button>
             )
           })}
-          {!allSelected && (
+          {(!allSelected || q) && (
             <button
-              onClick={resetFilter}
+              onClick={() => { resetFilter(); setSearch('') }}
               style={{
                 background: 'transparent', border: '1px solid #374151', color: '#9ca3af',
                 borderRadius: 10, padding: '1px 8px', fontSize: 11, cursor: 'pointer',
@@ -315,7 +339,7 @@ export function RunHistory({ runs, onRerun }: Props) {
             background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb',
             borderRadius: 5, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
           }}
-        >⬇ Export {allSelected ? 'all' : 'shown'}</button>
+        >⬇ Export {filtered.length < runs.length ? 'shown' : 'all'}</button>
       </div>
       {filtered.length === 0 ? (
         <div style={{ padding: 20, color: '#6b7280', fontSize: 12, textAlign: 'center' }}>

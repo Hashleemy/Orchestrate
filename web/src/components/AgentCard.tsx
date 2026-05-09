@@ -208,20 +208,6 @@ export function AgentCard({ agent, onRespawn, recentAction, recentEvents, onFilt
         </div>
       )}
 
-      {!dead && agent.state !== 'complete' && agent.state !== 'stopped' && (
-        <div style={{ marginTop: 6 }}>
-          <button
-            disabled
-            title="Pause/resume not wired in backend yet"
-            style={{
-              background: '#1f2937', border: '1px dashed #4b5563',
-              color: '#6b7280', borderRadius: 4,
-              padding: '3px 10px', fontSize: 11, cursor: 'not-allowed',
-            }}
-          >⏸ Pause (soon)</button>
-        </div>
-      )}
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
         <div
           title={`Heartbeat: ${agent.timestamp}`}

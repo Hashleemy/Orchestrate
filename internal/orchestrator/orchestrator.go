@@ -73,6 +73,9 @@ func New(cfg Config, ss *sessions.Store, svc *approvals.Service) *Orchestrator {
 	return &Orchestrator{cfg: cfg, sessions: ss, approvals: svc, sched: sched, history: newRunHistory(cfg.CommsDir)}
 }
 
+// CommsDir returns the agent-comms directory path for this orchestrator instance.
+func (o *Orchestrator) CommsDir() string { return o.cfg.CommsDir }
+
 func ensureCommsDirs(commsDir string) error {
 	for _, sub := range commsDirs {
 		if err := os.MkdirAll(filepath.Join(commsDir, sub), 0755); err != nil {

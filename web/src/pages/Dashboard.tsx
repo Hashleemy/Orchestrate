@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { AgentCard }        from '../components/AgentCard'
 import { AgentGraph }       from '../components/AgentGraph'
@@ -16,6 +16,8 @@ import { TaskBoard }        from '../components/TaskBoard'
 import { toast } from '../components/Toast'
 import { compactMode, dimTerminalAgents, liveSec, useSetting, SETTING_KEYS, setBoolSetting } from '../settings'
 import type { AgentMessage, AgentStatus, Approval, Checkpoint, OrchestratorEvent, ReviewRequest, ReviewVerdict, RunRecord, Task } from '../types'
+
+const ACTIVE_EVENT_TYPES = new Set(['file_edit', 'test_run', 'commit', 'task_started', 'approval_requested', 'approval_received', 'message_sent', 'message_received'])
 
 interface Props {
   agents:                AgentStatus[]
@@ -102,20 +104,22 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const pendingCheckpoints = checkpoints.filter(c => c.status === 'pending')
   const quiet = agents.length === 0 && pending.length === 0 && pendingCheckpoints.length === 0 && runs.length === 0
 
-  const ACTIVE_EVENT_TYPES = new Set(['file_edit', 'test_run', 'commit', 'task_started', 'approval_requested', 'approval_received', 'message_sent', 'message_received'])
   const recentAction = new Map<string, boolean>()
   for (const e of events) {
     if (!ACTIVE_EVENT_TYPES.has(e.type)) continue
     const age = now - new Date(e.timestamp).getTime()
     if (age < 3000) recentAction.set(e.agent, true)
   }
-  const eventsByAgent = new Map<string, OrchestratorEvent[]>()
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i]
-    const list = eventsByAgent.get(e.agent) ?? []
-    if (list.length < 3) list.push(e)
-    eventsByAgent.set(e.agent, list)
-  }
+  const eventsByAgent = useMemo(() => {
+    const m = new Map<string, OrchestratorEvent[]>()
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]
+      const list = m.get(e.agent) ?? []
+      if (list.length < 3) list.push(e)
+      m.set(e.agent, list)
+    }
+    return m
+  }, [events])
 
   return (
     <div style={{ padding: compact ? 12 : 24, maxWidth: 1600, margin: '0 auto' }}>

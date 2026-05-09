@@ -1,4 +1,4 @@
-.PHONY: build ui go run dev clean
+.PHONY: build ui go run dev clean check test
 
 build: ui go
 
@@ -15,6 +15,12 @@ dev:
 	@echo "Start two terminals:"
 	@echo "  1. cd web && npm run watch"
 	@echo "  2. go run ./cmd/orchestrator"
+
+check: test
+	go vet ./...
+
+test:
+	go test -timeout 120s ./...
 
 clean:
 	rm -f orchestrator.exe
