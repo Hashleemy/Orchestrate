@@ -38,7 +38,7 @@ The orchestrator itself runs as a single process. It spawns **worker agents** (e
 ## Install and build
 
 ```powershell
-git clone <repo-url> local-agent-orchestrator
+git clone https://github.com/Hashleemy/Orchestrate local-agent-orchestrator
 cd local-agent-orchestrator
 make build
 ```
@@ -269,3 +269,9 @@ powershell -NoProfile -Command "Get-Command claude"
 | `docs/setup.md`           | Installation and first-run guide                  |
 | `docs/state-machine.md`   | Task and agent state machines                     |
 | `CLAUDE.md`               | Instructions loaded by every agent at startup     |
+
+---
+
+## Author
+
+Built by **Hashleemy** — [github.com/Hashleemy](https://github.com/Hashleemy)
