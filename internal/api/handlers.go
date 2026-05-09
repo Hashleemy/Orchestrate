@@ -102,15 +102,18 @@ func (h *handlers) RepoPick(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"path": path})
 }
 
-// StopRun terminates all live agent processes and cleans up worktrees.
+// StopRun terminates all live agent processes, writes a session summary
+// markdown file, and cleans up worktrees.
 func (h *handlers) StopRun(w http.ResponseWriter, r *http.Request) {
 	killed := h.srv.procs.LiveAgents()
 	h.srv.procs.KillAll()
 	cleanup := h.orch.StopRun()
+	summaryPath, _ := cleanup["session_summary_path"].(string)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":        "stopped",
-		"agents_killed": killed,
-		"cleanup":       cleanup,
+		"status":               "stopped",
+		"agents_killed":        killed,
+		"session_summary_path": summaryPath,
+		"cleanup":              cleanup,
 	})
 }
 
@@ -231,54 +234,79 @@ func (h *handlers) Summary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, summary)
 }
 
+// StartRun accepts a free-text project description, an optional GitHub SSH
+// repo URL, and a worker count. It clones the repo if needed, then spawns
+// the coordinator agent which generates tasks and drives the project to completion.
 func (h *handlers) StartRun(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Tasks       string `json:"tasks"`
+		Description string `json:"description"`
 		WorkerCount int    `json:"worker_count"`
+		RepoURL     string `json:"repo_url"`
+		RepoPath    string `json:"repo_path"`
+		// Legacy field — still accepted so old clients don't break.
+		Tasks string `json:"tasks"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "expected {tasks: string}")
-		return
-	}
-	if body.Tasks == "" {
-		writeError(w, http.StatusBadRequest, "tasks content is required")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if body.WorkerCount > 0 {
-		result, err := h.orch.SpawnWorkers(body.Tasks, body.WorkerCount)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+	// Fall back to legacy tasks field if description is empty.
+	if body.Description == "" && body.Tasks != "" {
+		body.Description = body.Tasks
+	}
+	if body.Description == "" {
+		writeError(w, http.StatusBadRequest, "description is required")
+		return
+	}
+
+	// If caller specified a repo path, override the server's active path.
+	if body.RepoPath != "" {
+		h.srv.setRepoPath(body.RepoPath)
+	}
+
+	repoPath := h.srv.getRepoPath()
+	if repoPath == "" {
+		writeError(w, http.StatusBadRequest, "no project folder selected — set the repo path first")
+		return
+	}
+
+	// Clone GitHub repo into the project folder if a URL was provided.
+	if body.RepoURL != "" && !gitops.IsRepo(repoPath) {
+		if err := h.orch.CloneRepo(body.RepoURL, repoPath); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("git clone failed: %s", err.Error()))
 			return
 		}
-		if result.Coordinator != nil {
-			h.srv.procs.Register(result.Coordinator, h.srv.store)
+		// Re-validate after clone.
+		if !gitops.IsRepo(repoPath) {
+			writeError(w, http.StatusInternalServerError, "clone succeeded but path is not a git repo")
+			return
 		}
-		for _, sess := range result.Workers {
-			h.srv.procs.Register(sess, h.srv.store)
-		}
-		workerIDs := make([]string, len(result.Workers))
-		for i, sess := range result.Workers {
-			workerIDs[i] = sess.AgentID
-		}
-		coordID := ""
-		if result.Coordinator != nil {
-			coordID = result.Coordinator.AgentID
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status":      "started",
-			"coordinator": coordID,
-			"workers":     workerIDs,
-			"errors":      result.Errors,
-		})
-		return
 	}
 
-	if err := h.orch.StartRun(body.Tasks); err != nil {
+	workerCount := body.WorkerCount
+	if workerCount < 1 {
+		workerCount = 1
+	}
+
+	result, err := h.orch.SpawnGoal(body.Description, workerCount, body.RepoURL)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "started"})
+	if result.Coordinator != nil {
+		h.srv.procs.Register(result.Coordinator, h.srv.store)
+	}
+	coordID := ""
+	if result.Coordinator != nil {
+		coordID = result.Coordinator.AgentID
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":      "started",
+		"coordinator": coordID,
+		"repo_path":   repoPath,
+		"errors":      result.Errors,
+	})
 }
 
 func (h *handlers) AgentDiff(w http.ResponseWriter, r *http.Request) {

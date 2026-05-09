@@ -41,7 +41,10 @@ export const api = {
   resolveCheckpoint: (id: string, choice: string) => post(`/checkpoints/${id}/resolve`, { choice }),
   openRepo:    (path: string) => postJSON<{ path: string; branch: string; clean: boolean }>('/repo/open', { path }),
   pickRepo:    () => postJSON<{ path: string }>('/repo/pick'),
-  startRun:    (tasks: string, workerCount = 0) => post('/run/start', { tasks, worker_count: workerCount }),
+  startRun:    (description: string, workerCount = 1, repoUrl = '', repoPath = '') =>
+    postJSON<{ status: string; coordinator: string; repo_path: string; errors: string[] }>(
+      '/run/start', { description, worker_count: workerCount, repo_url: repoUrl, repo_path: repoPath }
+    ),
   runs:        () => get<RunRecord[]>('/runs'),
   run:         (id: string) => get<RunRecord>(`/runs/${encodeURIComponent(id)}`),
   reviews:     () => get<ReviewsPayload>('/reviews'),
@@ -53,7 +56,7 @@ export const api = {
     postJSON<import('../types').Task>('/tasks', body),
   updateTaskStatus: (id: string, status: string) =>
     postJSON<import('../types').Task>(`/tasks/${encodeURIComponent(id)}/status`, { status }),
-  stopRun:     () => post('/run/stop'),
+  stopRun:     () => postJSON<{ status: string; session_summary_path: string; agents_killed: string[] }>('/run/stop'),
 }
 
 export type SSEPayload =

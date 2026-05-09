@@ -431,8 +431,9 @@ func (o *Orchestrator) SpawnWorkers(tasksContent string, workerCount int) (*Spaw
 	}, nil
 }
 
-// StopRun stops the scheduler, persists a run history record, and cleans up
-// all agent worktrees. Returns a summary of what was removed and any errors.
+// StopRun stops the scheduler, persists a run history record, writes a session
+// summary markdown file, and cleans up agent worktrees.
+// Returns cleanup details plus the path to the session summary file.
 func (o *Orchestrator) StopRun() map[string]any {
 	o.sched.Stop()
 
@@ -448,10 +449,13 @@ func (o *Orchestrator) StopRun() map[string]any {
 		o.persistRunRecord(runID, startedAt, workers, models.RunStopped)
 	}
 
+	summaryPath := o.writeSessionSummary(startedAt)
+
 	paths, err := gitops.AgentWorktreePaths(o.cfg.RepoRoot)
 	result := map[string]any{
-		"worktrees_removed": []string{},
-		"errors":            []string{},
+		"worktrees_removed":    []string{},
+		"errors":               []string{},
+		"session_summary_path": summaryPath,
 	}
 	if err != nil {
 		result["errors"] = []string{err.Error()}
@@ -466,6 +470,203 @@ func (o *Orchestrator) StopRun() map[string]any {
 	result["worktrees_removed"] = paths
 	result["errors"] = errStrs
 	return result
+}
+
+// writeSessionSummary generates a session-<timestamp>.md file in the project's
+// agent-comms/sessions/ directory and returns the absolute path.
+func (o *Orchestrator) writeSessionSummary(startedAt time.Time) string {
+	sessionsDir := filepath.Join(o.cfg.CommsDir, "sessions")
+	if err := os.MkdirAll(sessionsDir, 0755); err != nil {
+		log.Printf("orchestrator: create sessions dir: %v", err)
+		return ""
+	}
+
+	now := time.Now()
+	filename := fmt.Sprintf("session-%s.md", now.UTC().Format("2006-01-02T15-04-05"))
+	path := filepath.Join(sessionsDir, filename)
+
+	tasks, _ := o.Tasks()
+	var done, inProgress, blocked, ready []models.Task
+	for _, t := range tasks {
+		switch t.Status {
+		case models.TaskDone:
+			done = append(done, t)
+		case models.TaskInProgress:
+			inProgress = append(inProgress, t)
+		case models.TaskBlocked:
+			blocked = append(blocked, t)
+		case models.TaskReady:
+			ready = append(ready, t)
+		}
+	}
+
+	// Read project goal if available.
+	goalContent := ""
+	goalFile := filepath.Join(o.cfg.CommsDir, "project-goal.md")
+	if data, err := os.ReadFile(goalFile); err == nil {
+		goalContent = string(data)
+	}
+
+	var b strings.Builder
+	b.WriteString("# Session Summary\n\n")
+	b.WriteString(fmt.Sprintf("- **Started:** %s\n", startedAt.UTC().Format(time.RFC3339)))
+	b.WriteString(fmt.Sprintf("- **Ended:** %s\n", now.UTC().Format(time.RFC3339)))
+	dur := now.Sub(startedAt)
+	b.WriteString(fmt.Sprintf("- **Duration:** %s\n", dur.Round(time.Second)))
+	b.WriteString(fmt.Sprintf("- **Repo:** %s\n\n", o.cfg.RepoRoot))
+
+	if goalContent != "" {
+		b.WriteString("---\n\n")
+		b.WriteString(goalContent)
+		b.WriteString("\n\n")
+	}
+
+	b.WriteString("---\n\n")
+	b.WriteString(fmt.Sprintf("## Tasks Completed This Session (%d)\n\n", len(done)))
+	for _, t := range done {
+		b.WriteString(fmt.Sprintf("- [x] **%s** — %s\n", t.ID, t.Title))
+	}
+	if len(done) == 0 {
+		b.WriteString("_(none completed this session)_\n")
+	}
+
+	if len(inProgress) > 0 {
+		b.WriteString(fmt.Sprintf("\n## In Progress (%d)\n\n", len(inProgress)))
+		for _, t := range inProgress {
+			b.WriteString(fmt.Sprintf("- [ ] **%s** — %s (owner: %s)\n", t.ID, t.Title, t.Owner))
+		}
+	}
+
+	if len(blocked) > 0 {
+		b.WriteString(fmt.Sprintf("\n## Blocked (%d)\n\n", len(blocked)))
+		for _, t := range blocked {
+			b.WriteString(fmt.Sprintf("- [ ] **%s** — %s\n", t.ID, t.Title))
+		}
+	}
+
+	if len(ready) > 0 {
+		b.WriteString(fmt.Sprintf("\n## Ready to Pick Up (%d)\n\n", len(ready)))
+		for _, t := range ready {
+			b.WriteString(fmt.Sprintf("- [ ] **%s** — %s\n", t.ID, t.Title))
+		}
+	}
+
+	b.WriteString("\n---\n\n")
+	b.WriteString("## Resuming This Session\n\n")
+	b.WriteString("To continue where you left off:\n\n")
+	b.WriteString("1. Start the orchestrator server.\n")
+	b.WriteString("2. Open the dashboard in your browser.\n")
+	b.WriteString(fmt.Sprintf("3. Set the project folder to: `%s`\n", o.cfg.RepoRoot))
+	b.WriteString("4. Paste this session summary as the project description and click **Start Run**.\n")
+
+	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+		log.Printf("orchestrator: write session summary: %v", err)
+		return ""
+	}
+	return path
+}
+
+// SpawnGoal writes the project description to project-goal.md, creates a
+// minimal tasks.md skeleton, and spawns only the coordinator agent.
+// The coordinator reads the goal and drives the rest of the work.
+// workerCount is stored in project-goal.md so the coordinator knows the limit.
+func (o *Orchestrator) SpawnGoal(description string, workerCount int, repoURL string) (*SpawnResult, error) {
+	if err := o.GuardPendingCheckpoints("spawn_goal"); err != nil {
+		return nil, err
+	}
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	if workerCount > 5 {
+		workerCount = 5
+	}
+
+	tasksDir := filepath.Join(o.cfg.CommsDir, "tasks")
+	if err := os.MkdirAll(tasksDir, 0755); err != nil {
+		return nil, fmt.Errorf("create tasks dir: %w", err)
+	}
+
+	// Write the project goal file — the coordinator reads this as its primary input.
+	goalPath := filepath.Join(o.cfg.CommsDir, "project-goal.md")
+	goalContent := o.buildProjectGoal(description, workerCount, repoURL)
+	if err := os.WriteFile(goalPath, []byte(goalContent), 0644); err != nil {
+		return nil, fmt.Errorf("write project-goal.md: %w", err)
+	}
+
+	// Write a minimal tasks.md skeleton. The coordinator will populate it.
+	tasksFile := filepath.Join(tasksDir, "tasks.md")
+	if err := os.WriteFile(tasksFile, []byte(minimalTasksMD()), 0644); err != nil {
+		return nil, fmt.Errorf("write tasks.md: %w", err)
+	}
+
+	scriptsDir := filepath.Join(o.cfg.RepoRoot, "scripts")
+	coord, err := sessions.Launch(sessions.LaunchConfig{
+		AgentID:            "agent-coordinator-01",
+		Role:               "coordinator",
+		TaskID:             "coordinator",
+		TaskFile:           goalPath,
+		RepoRoot:           o.cfg.RepoRoot,
+		ScriptsDir:         scriptsDir,
+		BaseRef:            "main",
+		UseWindowsTerminal: o.cfg.UseWindowsTerminal,
+	}, o.sessions)
+	if err != nil {
+		return nil, fmt.Errorf("spawn coordinator: %w", err)
+	}
+
+	o.runMu.Lock()
+	o.activeRunID = fmt.Sprintf("run-%d", time.Now().UnixMilli())
+	o.runStartedAt = time.Now()
+	o.runWorkers = []string{coord.AgentID}
+	o.runMu.Unlock()
+
+	return &SpawnResult{Coordinator: coord}, nil
+}
+
+// CloneRepo runs `git clone <url> <dest>` and blocks until it completes.
+func (o *Orchestrator) CloneRepo(url, dest string) error {
+	cmd := exec.Command("git", "clone", url, dest)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git clone: %w\n%s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func (o *Orchestrator) buildProjectGoal(description string, workerCount int, repoURL string) string {
+	var b strings.Builder
+	b.WriteString("# Project Goal\n\n")
+	b.WriteString("## User Description\n\n")
+	b.WriteString(strings.TrimSpace(description))
+	b.WriteString("\n\n")
+	b.WriteString("## Session Configuration\n\n")
+	b.WriteString(fmt.Sprintf("- Max concurrent worker agents: %d\n", workerCount))
+	if repoURL != "" {
+		b.WriteString(fmt.Sprintf("- GitHub repository: %s\n", repoURL))
+	}
+	b.WriteString(fmt.Sprintf("- Repo root: %s\n", o.cfg.RepoRoot))
+	b.WriteString(fmt.Sprintf("- Scripts dir: %s\n", filepath.Join(o.cfg.RepoRoot, "scripts")))
+	b.WriteString(fmt.Sprintf("- CommsDir: %s\n", o.cfg.CommsDir))
+	b.WriteString(fmt.Sprintf("- Started at: %s\n", time.Now().UTC().Format(time.RFC3339)))
+	b.WriteString("\n## Instructions for Coordinator\n\n")
+	b.WriteString("Read the User Description above. This is what the project must achieve.\n")
+	b.WriteString("Generate tasks.md to fully implement everything described.\n")
+	b.WriteString("Keep generating new tasks and spawning workers until every part is done.\n")
+	return b.String()
+}
+
+func minimalTasksMD() string {
+	return `# Tasks
+
+## Global Rules
+- Do not edit files outside your assigned scope
+- Request approval for package installs
+- Never commit .env or secret-bearing files
+- All actions must produce an event log entry
+
+## Active Tasks
+
+`
 }
 
 func (o *Orchestrator) persistRunRecord(id string, startedAt time.Time, workers []string, status models.RunStatus) {

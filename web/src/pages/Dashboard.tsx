@@ -32,7 +32,7 @@ interface Props {
   onChangeRepo?:         (path: string) => Promise<void>
   onApprovalResolved:    () => void
   onCheckpointResolved:  () => void
-  onStartRun:            (tasks: string, workerCount: number) => Promise<void>
+  onStartRun:            (description: string, workerCount: number, repoUrl: string, repoPath: string) => Promise<void>
   onStopRun:             () => Promise<void>
   onStartReview:         (workerId: string, taskId: string) => Promise<void>
   onRespawn:             () => void
@@ -41,7 +41,7 @@ interface Props {
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
   const [showModal,    setShowModal]    = useState(false)
-  const [rerunSeed,    setRerunSeed]    = useState<{ tasks?: string; workerCount?: number } | null>(null)
+  const [rerunSeed,    setRerunSeed]    = useState<{ description?: string; workerCount?: number } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [agentQuery,   setAgentQuery]   = useState('')
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
@@ -123,7 +123,8 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
         <StartRunModal
           onStart={onStartRun}
           onClose={() => { setShowModal(false); setRerunSeed(null) }}
-          initialTasks={rerunSeed?.tasks}
+          currentRepoPath={repoPath}
+          initialDescription={rerunSeed?.description}
           initialWorkerCount={rerunSeed?.workerCount}
         />
       )}
