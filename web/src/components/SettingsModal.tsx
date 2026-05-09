@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { DEFAULTS, SETTING_KEYS, getBoolSetting, getIntSetting, setBoolSetting, setIntSetting } from '../settings'
 import { toast } from './Toast'
@@ -15,6 +15,8 @@ export function SettingsModal({ open, onClose }: Props) {
   const [dimTerminal, setDimTerminal] = useState(() => getBoolSetting(SETTING_KEYS.dimTerminal, true))
   const [compact,     setCompact]     = useState(() => getBoolSetting(SETTING_KEYS.compact,     false))
   const [health,      setHealth]      = useState<HealthInfo | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
@@ -31,10 +33,10 @@ export function SettingsModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

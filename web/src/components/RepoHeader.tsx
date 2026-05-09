@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { api } from '../api/client'
 import type { AgentStatus, Task } from '../types'
@@ -110,13 +110,20 @@ export function RepoHeader({ agents, tasks, repoPath, onChangeRepo }: Props) {
       setSaving(false)
     }
   }
-  const done       = tasks.filter(t => t.status === 'done').length
-  const inProgress = tasks.filter(t => t.status === 'in_progress').length
-  const blocked    = tasks.filter(t => t.status === 'blocked').length
-  const total      = tasks.length
-
-  const activeBranches = [...new Set(agents.map(a => a.branch).filter(Boolean))]
-  const runState = deriveRunState(agents, tasks)
+  const { done, inProgress, blocked, total } = useMemo(() => {
+    let done = 0, inProgress = 0, blocked = 0
+    for (const t of tasks) {
+      if (t.status === 'done') done++
+      else if (t.status === 'in_progress') inProgress++
+      else if (t.status === 'blocked') blocked++
+    }
+    return { done, inProgress, blocked, total: tasks.length }
+  }, [tasks])
+  const activeBranches = useMemo(
+    () => [...new Set(agents.map(a => a.branch).filter(Boolean))],
+    [agents]
+  )
+  const runState = useMemo(() => deriveRunState(agents, tasks), [agents, tasks])
 
   return (
     <div style={{

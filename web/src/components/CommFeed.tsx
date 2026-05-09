@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { compactMode, useSetting } from '../settings'
 import { Glyph } from './Glyph'
@@ -116,49 +116,57 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     })
   }
 
-  const includeEvents   = typeFilter === 'all' || typeFilter === 'events'   || typeFilter === 'starred'
-  const includeMessages = typeFilter === 'all' || typeFilter === 'messages' || typeFilter === 'starred'
-  let items: FeedItem[] = [
-    ...(includeEvents   ? events.map(e   => ({ kind: 'event'   as const, ts: new Date(e.timestamp).getTime(), data: e })) : []),
-    ...(includeMessages ? messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m })) : []),
-  ]
-
-  if (typeFilter === 'starred') {
-    items = items.filter(it => starred.has(feedKey(it)))
-  }
-
-  if (agentFilter) {
-    items = items.filter(it => it.kind === 'event'
-      ? it.data.agent === agentFilter
-      : it.data.from === agentFilter || it.data.to === agentFilter)
-  }
-
-  if (taskFilter) {
-    items = items.filter(it => it.data.task_id === taskFilter)
-  }
-
   const q = search.trim().toLowerCase()
-  if (q) {
-    items = items.filter(it => {
-      if (it.kind === 'event') {
-        return `${it.data.type} ${it.data.detail ?? ''} ${it.data.agent} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
-      }
-      return `${it.data.type} ${it.data.body ?? ''} ${it.data.from} ${it.data.to} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
-    })
-  }
 
-  items = items.sort((a, b) => b.ts - a.ts).slice(0, maxItems)
+  const items = useMemo(() => {
+    const includeEvents   = typeFilter === 'all' || typeFilter === 'events'   || typeFilter === 'starred'
+    const includeMessages = typeFilter === 'all' || typeFilter === 'messages' || typeFilter === 'starred'
+    let result: FeedItem[] = [
+      ...(includeEvents   ? events.map(e   => ({ kind: 'event'   as const, ts: new Date(e.timestamp).getTime(), data: e })) : []),
+      ...(includeMessages ? messages.map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m })) : []),
+    ]
+
+    if (typeFilter === 'starred') {
+      result = result.filter(it => starred.has(feedKey(it)))
+    }
+
+    if (agentFilter) {
+      result = result.filter(it => it.kind === 'event'
+        ? it.data.agent === agentFilter
+        : it.data.from === agentFilter || it.data.to === agentFilter)
+    }
+
+    if (taskFilter) {
+      result = result.filter(it => it.data.task_id === taskFilter)
+    }
+
+    if (q) {
+      result = result.filter(it => {
+        if (it.kind === 'event') {
+          return `${it.data.type} ${it.data.detail ?? ''} ${it.data.agent} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
+        }
+        return `${it.data.type} ${it.data.body ?? ''} ${it.data.from} ${it.data.to} ${it.data.task_id ?? ''}`.toLowerCase().includes(q)
+      })
+    }
+
+    return result.sort((a, b) => b.ts - a.ts).slice(0, maxItems)
+  }, [events, messages, typeFilter, agentFilter, taskFilter, q, maxItems, starred])
 
   type DedupedItem = FeedItem & { collapsedCount?: number }
-  const deduped: DedupedItem[] = []
-  for (const it of items) {
-    const prev = deduped[deduped.length - 1] as DedupedItem | undefined
-    if (prev && canCollapse(prev, it, starred)) {
-      prev.collapsedCount = (prev.collapsedCount ?? 1) + 1
-    } else {
-      deduped.push({ ...it })
+  const deduped = useMemo(() => {
+    const result: DedupedItem[] = []
+    for (const it of items) {
+      const prev = result[result.length - 1] as DedupedItem | undefined
+      if (prev && canCollapse(prev, it, starred)) {
+        prev.collapsedCount = (prev.collapsedCount ?? 1) + 1
+      } else {
+        result.push({ ...it })
+      }
     }
-  }
+    return result
+  }, [items, starred])
+  const dedupedRef = useRef<DedupedItem[]>([])
+  dedupedRef.current = deduped
 
   const mounted = useRef(false)
   const knownKeys = useRef<Set<string>>(new Set())
@@ -243,8 +251,8 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
         e.preventDefault()
         setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
       } else if (e.key === 'Enter' && cursor >= 0 && cursor < itemCount) {
-        const it = deduped[cursor]
-        const tid = it.data.task_id
+        const it = dedupedRef.current[cursor]
+        const tid = it?.data.task_id
         if (tid) {
           e.preventDefault()
           setTaskFilter(tid)
@@ -256,7 +264,7 @@ export function CommFeed({ events, messages, maxItems = 120, agentFilter = null,
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [itemCount, cursor, deduped, navHovered])
+  }, [itemCount, cursor, navHovered])
 
   useEffect(() => {
     if (cursor < 0) return

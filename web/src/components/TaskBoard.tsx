@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import type React from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { compactMode, useSetting } from '../settings'
 import type { AgentMessage, OrchestratorEvent, Task } from '../types'
@@ -157,18 +158,23 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
   }, [showForm])
 
   const q = search.trim().toLowerCase()
-  const filtered = tasks.filter(t => {
+  const filtered = useMemo(() => tasks.filter(t => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false
     if (q) {
       const hay = `${t.id} ${t.title} ${t.owner ?? ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
     return true
-  })
+  }), [tasks, filterStatus, q])
 
-  const sorted = sortByPriority
-    ? [...filtered].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
-    : filtered
+  const sorted = useMemo(() =>
+    sortByPriority
+      ? [...filtered].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
+      : filtered,
+    [filtered, sortByPriority]
+  )
+  const sortedRef = useRef<Task[]>([])
+  sortedRef.current = sorted
 
   const taskCount = sorted.length
   useEffect(() => {
@@ -194,7 +200,7 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
         setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
       } else if (e.key === 'Enter' && cursor >= 0 && cursor < taskCount) {
         e.preventDefault()
-        setOpenTask(sorted[cursor])
+        setOpenTask(sortedRef.current[cursor] ?? null)
       } else if (e.key === 'Escape' && cursor >= 0) {
         e.preventDefault()
         setCursor(-1)
@@ -202,7 +208,7 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [hovered, taskCount, cursor, sorted])
+  }, [hovered, taskCount, cursor])
 
   useEffect(() => {
     if (cursor < 0) return
@@ -210,10 +216,11 @@ export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], on
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [cursor])
 
-  const counts = ALL_STATUSES.reduce<Record<string, number>>((acc, s) => {
-    acc[s] = s === 'all' ? tasks.length : tasks.filter(t => t.status === s).length
-    return acc
-  }, {})
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: tasks.length }
+    for (const t of tasks) c[t.status] = (c[t.status] ?? 0) + 1
+    return c
+  }, [tasks])
 
   function handleFormDone() {
     setShowForm(false)
@@ -472,12 +479,15 @@ function InlineStatusCell({ task }: { task: Task }) {
 const BOARD_COLUMNS = ['todo', 'ready', 'in_progress', 'blocked', 'awaiting_review', 'awaiting_approval', 'done', 'cancelled']
 
 function BoardView({ tasks, onOpen }: { tasks: Task[]; onOpen: (t: Task) => void }) {
-  const grouped: Record<string, Task[]> = {}
-  for (const col of BOARD_COLUMNS) grouped[col] = []
-  for (const t of tasks) {
-    if (grouped[t.status]) grouped[t.status].push(t)
-    else (grouped['todo'] = grouped['todo'] ?? []).push(t)
-  }
+  const grouped = useMemo(() => {
+    const g: Record<string, Task[]> = {}
+    for (const col of BOARD_COLUMNS) g[col] = []
+    for (const t of tasks) {
+      if (g[t.status]) g[t.status].push(t)
+      else (g['todo'] = g['todo'] ?? []).push(t)
+    }
+    return g
+  }, [tasks])
 
   return (
     <div style={{
@@ -523,5 +533,3 @@ function BoardView({ tasks, onOpen }: { tasks: Task[]; onOpen: (t: Task) => void
     </div>
   )
 }
-
-import type React from 'react'

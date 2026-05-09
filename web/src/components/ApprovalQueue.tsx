@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ApprovalCard } from './ApprovalCard'
 import { Glyph } from './Glyph'
 import { api } from '../api/client'
@@ -13,8 +13,9 @@ interface Props {
 const DIFF_TRIGGERS = new Set(['protected_merge', 'major_change', 'lockfile_change'])
 
 export function ApprovalQueue({ approvals, onResolved }: Props) {
-  const pending  = approvals.filter(a => a.status === 'pending')
-  const resolved = approvals.filter(a => a.status !== 'pending')
+  const pending  = useMemo(() => approvals.filter(a => a.status === 'pending'),  [approvals])
+  const resolved = useMemo(() => approvals.filter(a => a.status !== 'pending'), [approvals])
+  const pendingKey = useMemo(() => pending.map(p => p.id + ':' + p.agent).join('|'), [pending])
 
   const [minorIds, setMinorIds] = useState<Set<string>>(new Set())
   const [bulking,  setBulking]  = useState(false)
@@ -33,9 +34,9 @@ export function ApprovalQueue({ approvals, onResolved }: Props) {
       setMinorIds(next)
     })
     return () => { cancelled = true }
-  }, [pending.map(p => p.id + ':' + p.agent).join('|')])
+  }, [pendingKey])
 
-  const minorPending = pending.filter(a => minorIds.has(a.id))
+  const minorPending = useMemo(() => pending.filter(a => minorIds.has(a.id)), [pending, minorIds])
 
   async function handleBulkApprove() {
     if (minorPending.length === 0) return

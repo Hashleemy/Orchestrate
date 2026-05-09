@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Glyph } from './Glyph'
 import type { RunRecord } from '../types'
 
@@ -258,23 +258,27 @@ export function RunHistory({ runs, onRerun }: Props) {
   }
 
   const allSelected = statusFilter.size === STATUS_OPTIONS.length
-  const sorted = [...runs].sort((a, b) =>
-    new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-  )
   const q = search.trim().toLowerCase()
-  const statusFiltered = allSelected ? sorted : sorted.filter(r => statusFilter.has(r.status))
-  const filtered = q
-    ? statusFiltered.filter(r =>
-        r.repo_path.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q) ||
-        r.workers.some(w => w.toLowerCase().includes(q)) ||
-        (r.summary ?? '').toLowerCase().includes(q)
-      )
-    : statusFiltered
-  const counts: Record<RunStatus, number> = {
-    complete: 0, stopped: 0, active: 0, paused: 0, idle: 0,
-  }
-  for (const r of runs) counts[r.status] = (counts[r.status] ?? 0) + 1
+
+  const sorted = useMemo(() =>
+    [...runs].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
+    [runs]
+  )
+  const filtered = useMemo(() => {
+    const statusFiltered = allSelected ? sorted : sorted.filter(r => statusFilter.has(r.status))
+    if (!q) return statusFiltered
+    return statusFiltered.filter(r =>
+      r.repo_path.toLowerCase().includes(q) ||
+      r.id.toLowerCase().includes(q) ||
+      r.workers.some(w => w.toLowerCase().includes(q)) ||
+      (r.summary ?? '').toLowerCase().includes(q)
+    )
+  }, [sorted, allSelected, statusFilter, q])
+  const counts = useMemo(() => {
+    const c: Record<RunStatus, number> = { complete: 0, stopped: 0, active: 0, paused: 0, idle: 0 }
+    for (const r of runs) c[r.status] = (c[r.status] ?? 0) + 1
+    return c
+  }, [runs])
 
   return (
     <div
@@ -382,6 +386,9 @@ function RunHistoryKeyNav({ count, cursor, setCursor, onEnter, rowRefs }: {
   onEnter: () => void
   rowRefs: { current: Array<HTMLDivElement | null> }
 }) {
+  const onEnterRef = useRef(onEnter)
+  onEnterRef.current = onEnter
+
   useEffect(() => {
     function isTyping(t: EventTarget | null) {
       if (!(t instanceof HTMLElement)) return false
@@ -399,12 +406,12 @@ function RunHistoryKeyNav({ count, cursor, setCursor, onEnter, rowRefs }: {
         e.preventDefault()
         setCursor((c: number) => Math.max(0, c < 0 ? 0 : c - 1))
       } else if (e.key === 'Enter' && cursor >= 0) {
-        onEnter()
+        onEnterRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [count, cursor, onEnter, setCursor])
+  }, [count, cursor, setCursor])
 
   useEffect(() => {
     if (cursor < 0) return

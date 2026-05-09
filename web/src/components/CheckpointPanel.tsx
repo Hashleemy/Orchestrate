@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import { approvalKindColor, approvalKindIcon } from './approvalKind'
 import { toast } from './Toast'
@@ -53,12 +53,15 @@ function saveHidden(s: Set<string>) {
 }
 
 export function CheckpointPanel({ checkpoints, onResolved }: Props) {
-  const pending = checkpoints.filter(c => c.status === 'pending')
-  const pendingIdStr = pending.map(p => p.id).join(',')
+  // All hooks before any early returns — rule of hooks
+  const pending = useMemo(() => checkpoints.filter(c => c.status === 'pending'), [checkpoints])
+  const pendingIdStr = useMemo(() => pending.map(p => p.id).join(','), [pending])
 
   const [activeKinds, setActiveKinds] = useState<Set<string>>(() => loadKindFilter())
   const [hidden, setHidden] = useState<Set<string>>(() => loadHidden())
   const [showHidden, setShowHidden] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState(false)
 
   useEffect(() => { saveKindFilter(activeKinds) }, [activeKinds])
   useEffect(() => { saveHidden(hidden) }, [hidden])
@@ -76,21 +79,28 @@ export function CheckpointPanel({ checkpoints, onResolved }: Props) {
     })
   }, [pendingIdStr])
 
-  if (pending.length === 0) return null
-
-  const visiblePending = showHidden ? pending : pending.filter(c => !hidden.has(c.id))
+  const visiblePending = useMemo(
+    () => showHidden ? pending : pending.filter(c => !hidden.has(c.id)),
+    [pending, showHidden, hidden]
+  )
   const hiddenCount = pending.length - visiblePending.length
+  const kindCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const cp of visiblePending) m.set(cp.kind, (m.get(cp.kind) ?? 0) + 1)
+    return m
+  }, [visiblePending])
+  const kinds = useMemo(() => Array.from(kindCounts.keys()).sort(), [kindCounts])
+  const effective = useMemo(() => activeKinds.size === 0 ? null : activeKinds, [activeKinds])
+  const filtered = useMemo(
+    () => effective ? visiblePending.filter(c => effective.has(c.kind)) : visiblePending,
+    [visiblePending, effective]
+  )
+  const bulkResolvable = useMemo(
+    () => filtered.filter(c => (c.next_steps?.length ?? 0) > 0),
+    [filtered]
+  )
 
-  const kindCounts = new Map<string, number>()
-  for (const cp of visiblePending) kindCounts.set(cp.kind, (kindCounts.get(cp.kind) ?? 0) + 1)
-  const kinds = Array.from(kindCounts.keys()).sort()
-
-  const effective = activeKinds.size === 0 ? null : activeKinds
-  const filtered = effective ? visiblePending.filter(c => effective.has(c.kind)) : visiblePending
-  const bulkResolvable = filtered.filter(c => (c.next_steps?.length ?? 0) > 0)
-
-  const [bulkBusy, setBulkBusy] = useState(false)
-  const [bulkConfirm, setBulkConfirm] = useState(false)
+  if (pending.length === 0) return null
 
   async function resolveAll() {
     setBulkBusy(true)
@@ -338,7 +348,7 @@ function CheckpointCard({ checkpoint: cp, onResolved, silenced, onToggleSilence 
       {diff && <DiffInline diff={diff} />}
 
       {/* Next steps */}
-      {cp.next_steps?.length > 0 && (
+      {cp.next_steps && cp.next_steps.length > 0 && (
         <div>
           <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
             Choose a next step:

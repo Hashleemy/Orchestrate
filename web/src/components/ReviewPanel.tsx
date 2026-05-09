@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Glyph } from './Glyph'
 import { toast } from './Toast'
@@ -136,7 +136,7 @@ function VerdictCard({ v, selected, onSelect, cardRef, mergeRef, expanded, onTog
       {expanded && (
         <div style={{ background: '#0f172a', padding: '10px 14px' }}>
           <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 2 }}>Branch: <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>{v.branch}</span></div>
-          {v.issues?.length > 0 && (
+          {v.issues && v.issues.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div style={{ color: '#9ca3af', fontSize: 12, marginBottom: 4 }}>Issues:</div>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -280,8 +280,13 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
   const cardRefs = useRef<Array<HTMLDivElement | null>>([])
   const mergeFns = useRef<Array<(() => void) | null>>([])
 
-  const allGroups = groupVerdictsByWorker(verdicts)
-  const groups = workerFilter ? allGroups.filter(g => g.worker_id === workerFilter) : allGroups
+  const allGroups = useMemo(() => groupVerdictsByWorker(verdicts), [verdicts])
+  const groups = useMemo(
+    () => workerFilter ? allGroups.filter(g => g.worker_id === workerFilter) : allGroups,
+    [allGroups, workerFilter]
+  )
+  const groupsRef = useRef<VerdictGroup[]>([])
+  groupsRef.current = groups
   const groupCount = groups.length
 
   useEffect(() => {
@@ -307,8 +312,8 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
         setCursor(c => Math.max(0, c < 0 ? 0 : c - 1))
       } else if (e.key === 'Enter' && cursor >= 0) {
         e.preventDefault()
-        const key = groups[cursor].worker_id
-        setExpandedSet(prev => {
+        const key = groupsRef.current[cursor]?.worker_id
+        if (key) setExpandedSet(prev => {
           const next = new Set(prev)
           if (next.has(key)) next.delete(key)
           else next.add(key)
@@ -321,7 +326,8 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
         else toast('info', 'Nothing to accept', 'This verdict is not in a mergeable state.')
       } else if (e.key === 'R' && e.shiftKey && cursor >= 0) {
         e.preventDefault()
-        const g = groups[cursor]
+        const g = groupsRef.current[cursor]
+        if (!g) return
         const latest = g.verdicts[0]
         setWorkerID(g.worker_id)
         setTaskID(latest.task_id)
@@ -333,7 +339,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [hovered, groupCount, cursor, groups])
+  }, [hovered, groupCount, cursor])
 
   useEffect(() => {
     if (cursor < 0) return
@@ -356,7 +362,7 @@ export function ReviewPanel({ verdicts, requests, onStartReview }: Props) {
     }
   }
 
-  const pendingRequests = requests.filter(r => r.status === 'pending')
+  const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests])
 
   return (
     <div

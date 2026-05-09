@@ -39,8 +39,20 @@ export function ApprovalCard({ approval, onResolved }: { approval: Approval; onR
   const pending = approval.status === 'pending'
   useEffect(() => {
     if (!pending) return
-    const id = window.setInterval(() => setNow(Date.now()), 500)
-    return () => window.clearInterval(id)
+    let id = window.setInterval(() => setNow(Date.now()), 500)
+    function onVisibility() {
+      if (document.hidden) {
+        window.clearInterval(id)
+      } else {
+        setNow(Date.now())
+        id = window.setInterval(() => setNow(Date.now()), 500)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [pending])
 
   const color    = approvalKindColor(approval.trigger)

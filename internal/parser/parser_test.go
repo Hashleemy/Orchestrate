@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"strings"
 	"testing"
 
 	"local-agent-orchestrator/internal/models"
@@ -130,5 +131,84 @@ func TestParse_EmptyInput(t *testing.T) {
 	}
 	if len(list.Tasks) != 0 {
 		t.Errorf("expected 0 tasks for empty input, got %d", len(list.Tasks))
+	}
+}
+
+func TestParse_CRLFLineEndings(t *testing.T) {
+	crlf := strings.ReplaceAll(sampleTasks, "\n", "\r\n")
+	list, err := parser.Parse(crlf)
+	if err != nil {
+		t.Fatalf("CRLF: %v", err)
+	}
+	if len(list.Tasks) != 2 {
+		t.Errorf("CRLF: expected 2 tasks, got %d", len(list.Tasks))
+	}
+	if list.Tasks[0].Status != models.TaskReady {
+		t.Errorf("CRLF: expected ready status, got %q", list.Tasks[0].Status)
+	}
+}
+
+func TestParse_BOMPrefix(t *testing.T) {
+	bom := "\xEF\xBB\xBF" + sampleTasks
+	list, err := parser.Parse(bom)
+	if err != nil {
+		t.Fatalf("BOM: %v", err)
+	}
+	if len(list.Tasks) != 2 {
+		t.Errorf("BOM: expected 2 tasks, got %d", len(list.Tasks))
+	}
+}
+
+func TestParse_TrailingWhitespaceInTitle(t *testing.T) {
+	input := "## Active Tasks\n\n### TASK-001\nstatus: ready\ntitle: Build parser   \nowner: agent-01\n"
+	list, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list.Tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(list.Tasks))
+	}
+	if list.Tasks[0].Title != "Build parser" {
+		t.Errorf("title: want %q, got %q", "Build parser", list.Tasks[0].Title)
+	}
+}
+
+func TestParse_AdjacentSectionsNoBlanks(t *testing.T) {
+	input := "## Active Tasks\n### TASK-001\nstatus: ready\ntitle: First\n### TASK-002\nstatus: todo\ntitle: Second\n"
+	list, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list.Tasks) != 2 {
+		t.Errorf("expected 2 tasks from adjacent sections, got %d", len(list.Tasks))
+	}
+}
+
+func TestParse_UnknownKeysIgnored(t *testing.T) {
+	input := "## Active Tasks\n\n### TASK-001\nstatus: ready\ntitle: T\nfuture_field: some value\nanother_unknown: 42\n"
+	list, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("unexpected error on unknown keys: %v", err)
+	}
+	if len(list.Tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(list.Tasks))
+	}
+	if list.Tasks[0].Title != "T" {
+		t.Errorf("known fields still parsed: want title %q, got %q", "T", list.Tasks[0].Title)
+	}
+}
+
+func TestParse_MissingStatusContinues(t *testing.T) {
+	// Task without status: should still parse remaining fields and not fail
+	input := "## Active Tasks\n\n### TASK-001\ntitle: No Status Task\nowner: agent-01\n\n### TASK-002\nstatus: todo\ntitle: With Status\n"
+	list, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list.Tasks) != 2 {
+		t.Errorf("expected 2 tasks, got %d", len(list.Tasks))
+	}
+	if list.Tasks[1].Status != models.TaskTodo {
+		t.Errorf("TASK-002 status: want todo, got %q", list.Tasks[1].Status)
 	}
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentMessage, OrchestratorEvent, Task } from '../types'
 import { PriorityChip, RiskChip, StatusChip } from './chips'
 import { CopyId } from './CopyId'
@@ -19,12 +19,15 @@ interface Props {
 }
 
 export function TaskDrawer({ task, onClose, events = [], messages = [], onFilterFeed }: Props) {
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!task) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [task, onClose])
+  }, [task])
 
   if (!task) return null
 
@@ -178,13 +181,15 @@ function saveActivityLimit(v: ActivityLimit) {
 function TaskActivity({ task, events, messages, onFilterFeed }: { task: Task; events: OrchestratorEvent[]; messages: AgentMessage[]; onFilterFeed?: (taskId: string) => void }) {
   const [limit, setLimit] = useState<ActivityLimit>(() => loadActivityLimit())
 
-  const taskEvents = events
-    .filter(e => e.task_id === task.id)
-    .map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))
-  const taskMsgs = messages
-    .filter(m => m.task_id === task.id)
-    .map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m }))
-  const allItems: Activity[] = [...taskEvents, ...taskMsgs].sort((a, b) => b.ts - a.ts)
+  const allItems = useMemo((): Activity[] => {
+    const taskEvents = events
+      .filter(e => e.task_id === task.id)
+      .map(e => ({ kind: 'event' as const, ts: new Date(e.timestamp).getTime(), data: e }))
+    const taskMsgs = messages
+      .filter(m => m.task_id === task.id)
+      .map(m => ({ kind: 'message' as const, ts: new Date(m.timestamp).getTime(), data: m }))
+    return [...taskEvents, ...taskMsgs].sort((a, b) => b.ts - a.ts)
+  }, [events, messages, task.id])
   const items = allItems.slice(0, limit)
   const totalCount = allItems.length
 

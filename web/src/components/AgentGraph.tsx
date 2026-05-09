@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { staleSec } from '../settings'
 import type { AgentMessage, AgentStatus, OrchestratorEvent, ReviewRequest } from '../types'
 
@@ -28,6 +28,8 @@ const ACTION_EVENTS = new Set([
 ])
 
 const ACTIVE_WINDOW_MS = 3000
+const MSG_WINDOW_MS    = 3000
+const BASE_W           = 960
 
 const LEGEND_KEY = 'orchestrate.agentgraph.legend'
 function loadLegendHidden(): boolean {
@@ -68,74 +70,77 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   const [pinned, setPinned] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(timer)
+    let timer = window.setInterval(() => setNow(Date.now()), 500)
+    function onVisibility() {
+      if (document.hidden) {
+        window.clearInterval(timer)
+      } else {
+        setNow(Date.now())
+        timer = window.setInterval(() => setNow(Date.now()), 500)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 
-  if (agents.length === 0) {
-    return (
-      <div style={{
-        height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#4b5563', fontSize: 13, fontStyle: 'italic',
-      }}>
-        No agents yet — start a run to populate the graph.
-      </div>
-    )
-  }
-
-  const lastActionAt = new Map<string, number>()
-  for (const e of events) {
-    if (!ACTION_EVENTS.has(e.type)) continue
-    const t = new Date(e.timestamp).getTime()
-    const prev = lastActionAt.get(e.agent) ?? 0
-    if (t > prev) lastActionAt.set(e.agent, t)
-  }
-
-  const coord = agents.find(a => roleOf(a.agent) === 'coordinator')
-  const workers = agents.filter(a => roleOf(a.agent) !== 'coordinator')
-
-  const BASE_W = 960
-  const PER_WORKER = 150
-  const W = Math.max(BASE_W, workers.length * PER_WORKER)
-  const H = 360
-  const coordX = W / 2, coordY = 80
-  const workerY = 260
-  const margin = 90
-  const workerXs = workers.map((_, i) => {
-    if (workers.length === 1) return W / 2
-    return margin + (i * (W - 2 * margin)) / (workers.length - 1)
-  })
-
-  const isActive = (agentId: string) => {
-    const last = lastActionAt.get(agentId)
-    return last !== undefined && (now - last) < ACTIVE_WINDOW_MS
-  }
-
-  // Position map for all agents (coordinator + workers)
-  const positions = new Map<string, { x: number; y: number }>()
-  if (coord) positions.set(coord.agent, { x: coordX, y: coordY })
-  workers.forEach((w, i) => positions.set(w.agent, { x: workerXs[i], y: workerY }))
-
-  // Recent messages (for flow pulses) — last 2 seconds, sender+receiver both on graph
-  const MSG_WINDOW_MS = 2000
-  const recentMessages = messages.filter(m => {
-    const age = now - new Date(m.timestamp).getTime()
-    return age >= 0 && age < MSG_WINDOW_MS
-      && positions.has(m.from) && positions.has(m.to)
-      && m.from !== m.to
-  })
-
-  // Reviewer → worker edges from review requests (pending or recent)
-  const reviewerEdges: Array<{ from: string; to: string }> = []
-  const reviewerOpenCount = new Map<string, number>()
-  for (const r of reviewRequests) {
-    if (positions.has(r.reviewer_id) && positions.has(r.worker_id)) {
-      reviewerEdges.push({ from: r.reviewer_id, to: r.worker_id })
+  // All hooks before any early returns — rule of hooks
+  const lastActionAt = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of events) {
+      if (!ACTION_EVENTS.has(e.type)) continue
+      const t = new Date(e.timestamp).getTime()
+      const prev = m.get(e.agent) ?? 0
+      if (t > prev) m.set(e.agent, t)
     }
-    if (r.status === 'pending') {
-      reviewerOpenCount.set(r.reviewer_id, (reviewerOpenCount.get(r.reviewer_id) ?? 0) + 1)
-    }
+    return m
+  }, [events])
+
+  const recentMessages = useMemo(
+    () => messages.filter(m => (now - new Date(m.timestamp).getTime()) < MSG_WINDOW_MS),
+    [messages, now]
+  )
+
+  function isActive(agentId: string): boolean {
+    const t = lastActionAt.get(agentId)
+    if (!t) return false
+    return (now - t) < ACTIVE_WINDOW_MS
   }
+
+  const { coord, workers, W, coordX, workerXs, positions } = useMemo(() => {
+    const PER_WORKER = 150
+    const coord = agents.find(a => roleOf(a.agent) === 'coordinator')
+    const workers = agents.filter(a => roleOf(a.agent) !== 'coordinator')
+    const W = Math.max(BASE_W, workers.length * PER_WORKER)
+    const coordX = W / 2
+    const coordY = 80
+    const workerY = 260
+    const margin = 90
+    const workerXs = workers.map((_, i) => {
+      if (workers.length === 1) return W / 2
+      return margin + (i * (W - 2 * margin)) / (workers.length - 1)
+    })
+    const positions = new Map<string, { x: number; y: number }>()
+    if (coord) positions.set(coord.agent, { x: coordX, y: coordY })
+    workers.forEach((w, i) => positions.set(w.agent, { x: workerXs[i], y: workerY }))
+    return { coord, workers, W, coordX, workerXs, positions }
+  }, [agents])
+
+  const { reviewerEdges, reviewerOpenCount } = useMemo(() => {
+    const reviewerEdges: Array<{ from: string; to: string }> = []
+    const reviewerOpenCount = new Map<string, number>()
+    for (const r of reviewRequests) {
+      if (positions.has(r.reviewer_id) && positions.has(r.worker_id)) {
+        reviewerEdges.push({ from: r.reviewer_id, to: r.worker_id })
+      }
+      if (r.status === 'pending') {
+        reviewerOpenCount.set(r.reviewer_id, (reviewerOpenCount.get(r.reviewer_id) ?? 0) + 1)
+      }
+    }
+    return { reviewerEdges, reviewerOpenCount }
+  }, [reviewRequests, positions])
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const agentLayout = agents.map(a => a.agent).join(',')
@@ -169,6 +174,20 @@ export function AgentGraph({ agents, events, messages = [], reviewRequests = [],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinned, agentLayout])
 
+  if (agents.length === 0) {
+    return (
+      <div style={{
+        height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#4b5563', fontSize: 13, fontStyle: 'italic',
+      }}>
+        No agents yet — start a run to populate the graph.
+      </div>
+    )
+  }
+
+  const H = 360
+  const coordY = 80
+  const workerY = 260
   const minWidth = W > BASE_W ? W * 0.8 : undefined
 
   return (

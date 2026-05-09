@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Shortcut = { keys: string[]; description: string }
 
@@ -21,12 +21,15 @@ export function ShortcutOverlay() {
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
 
+  const openRef = useRef(false)
+  openRef.current = open
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName?.toLowerCase()
       const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable
-      if (e.key === 'Escape' && open) {
+      if (e.key === 'Escape' && openRef.current) {
         setOpen(false)
         return
       }
@@ -38,7 +41,7 @@ export function ShortcutOverlay() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [])
 
   useEffect(() => { if (!open) setFilter('') }, [open])
 
