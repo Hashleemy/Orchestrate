@@ -56,10 +56,24 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const commFeedRef   = useRef<HTMLDivElement | null>(null)
   const dimTerminal   = useSetting(dimTerminalAgents)
   const compact       = useSetting(compactMode)
+  const compactRef    = useRef(compact)
+  compactRef.current  = compact
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(t)
+    let t = window.setInterval(() => setNow(Date.now()), 500)
+    function onVisibility() {
+      if (document.hidden) {
+        window.clearInterval(t)
+      } else {
+        setNow(Date.now())
+        t = window.setInterval(() => setNow(Date.now()), 500)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 
   useEffect(() => {
@@ -91,21 +105,40 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       }
       if (e.key === 'c') {
         e.preventDefault()
-        setBoolSetting(SETTING_KEYS.compact, !compact)
+        setBoolSetting(SETTING_KEYS.compact, !compactRef.current)
         window.dispatchEvent(new Event('orchestrate-settings-changed'))
         return
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [compact])
+  }, [])
 
-  const pending = approvals.filter(a => a.status === 'pending')
-  const pendingCheckpoints = checkpoints.filter(c => c.status === 'pending')
+  const pending = useMemo(() => approvals.filter(a => a.status === 'pending'), [approvals])
+  const pendingCheckpoints = useMemo(() => checkpoints.filter(c => c.status === 'pending'), [checkpoints])
   const quiet = agents.length === 0 && pending.length === 0 && pendingCheckpoints.length === 0 && runs.length === 0
 
+  const agentFilterQ = agentQuery.trim().toLowerCase()
+  const filteredAgents = useMemo(() =>
+    agents.filter(a => {
+      if (stateFilter && a.state !== stateFilter) return false
+      if (agentFilterQ && !a.agent.toLowerCase().includes(agentFilterQ) && !a.branch.toLowerCase().includes(agentFilterQ)) return false
+      return true
+    }),
+    [agents, stateFilter, agentFilterQ]
+  )
+  const agentStateCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const a of agents) c[a.state] = (c[a.state] ?? 0) + 1
+    return c
+  }, [agents])
+  const hasActiveAgent = useMemo(() =>
+    agents.some(a => a.state !== 'complete' && a.state !== 'stopped'),
+    [agents]
+  )
+
   const recentAction = new Map<string, boolean>()
-  for (const e of events) {
+  for (const e of events.slice(-100)) {
     if (!ACTIVE_EVENT_TYPES.has(e.type)) continue
     const age = now - new Date(e.timestamp).getTime()
     if (age < 3000) recentAction.set(e.agent, true)
@@ -226,55 +259,43 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
         <Section title={`Agents (${agents.length})`}>
           {agents.length === 0
             ? <Empty glyph="agents" text="No agents running. Click + Start Run to spawn a coordinator and workers." />
-            : (() => {
-                const q = agentQuery.trim().toLowerCase()
-                const filtered = agents.filter(a => {
-                  if (stateFilter && a.state !== stateFilter) return false
-                  if (q && !a.agent.toLowerCase().includes(q) && !a.branch.toLowerCase().includes(q)) return false
-                  return true
-                })
-                const stateCounts: Record<string, number> = {}
-                for (const a of agents) stateCounts[a.state] = (stateCounts[a.state] ?? 0) + 1
-                const active = agentQuery || stateFilter
-                const hasActiveAgent = agents.some(a => a.state !== 'complete' && a.state !== 'stopped')
-                return (
-                  <>
-                    <AgentFilterBar
-                      query={agentQuery}
-                      onQueryChange={setAgentQuery}
-                      stateFilter={stateFilter}
-                      onStateFilterChange={setStateFilter}
-                      stateCounts={stateCounts}
-                      onClear={() => { setAgentQuery(''); setStateFilter(null) }}
-                      active={!!active}
-                      matchCount={filtered.length}
-                      total={agents.length}
-                      inputRef={agentQueryRef}
-                    />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                      {filtered.length === 0
-                        ? <div style={{ color: '#6b7280', fontSize: 12, padding: 8 }}>No agents match the current filter.</div>
-                        : filtered.map(a => {
-                            const terminal = a.state === 'complete' || a.state === 'stopped'
-                            const dim = dimTerminal && hasActiveAgent && terminal
-                            return (
-                              <div key={a.agent} style={{ opacity: dim ? 0.6 : 1, transition: 'opacity 200ms ease' }}>
-                                <AgentCard
-                                  agent={a}
-                                  onRespawn={onRespawn}
-                                  recentAction={recentAction.get(a.agent)}
-                                  recentEvents={eventsByAgent.get(a.agent)}
-                                  onFilterAgent={id => setCommAgent(prev => prev === id ? null : id)}
-                                  compact={compact}
-                                />
-                              </div>
-                            )
-                          })
-                      }
-                    </div>
-                  </>
-                )
-              })()
+            : (
+                <>
+                  <AgentFilterBar
+                    query={agentQuery}
+                    onQueryChange={setAgentQuery}
+                    stateFilter={stateFilter}
+                    onStateFilterChange={setStateFilter}
+                    stateCounts={agentStateCounts}
+                    onClear={() => { setAgentQuery(''); setStateFilter(null) }}
+                    active={!!(agentQuery || stateFilter)}
+                    matchCount={filteredAgents.length}
+                    total={agents.length}
+                    inputRef={agentQueryRef}
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                    {filteredAgents.length === 0
+                      ? <div style={{ color: '#6b7280', fontSize: 12, padding: 8 }}>No agents match the current filter.</div>
+                      : filteredAgents.map(a => {
+                          const terminal = a.state === 'complete' || a.state === 'stopped'
+                          const dim = dimTerminal && hasActiveAgent && terminal
+                          return (
+                            <div key={a.agent} style={{ opacity: dim ? 0.6 : 1, transition: 'opacity 200ms ease' }}>
+                              <AgentCard
+                                agent={a}
+                                onRespawn={onRespawn}
+                                recentAction={recentAction.get(a.agent)}
+                                recentEvents={eventsByAgent.get(a.agent)}
+                                onFilterAgent={id => setCommAgent(prev => prev === id ? null : id)}
+                                compact={compact}
+                              />
+                            </div>
+                          )
+                        })
+                    }
+                  </div>
+                </>
+              )
           }
         </Section>
 
@@ -455,6 +476,16 @@ function sectionKey(title: string): string {
   return 'orchestrate.section.' + title.replace(/\s*\(.*$/, '').trim().toLowerCase().replace(/\s+/g, '_')
 }
 
+// Inject section animation once
+;(() => {
+  if (typeof document === 'undefined') return
+  if (document.getElementById('orchestrate-section-style')) return
+  const s = document.createElement('style')
+  s.id = 'orchestrate-section-style'
+  s.textContent = `@keyframes sectionFadeIn { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: translateY(0) } }`
+  document.head.appendChild(s)
+})()
+
 function Section({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
   const key = sectionKey(title)
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -479,7 +510,11 @@ function Section({ title, children, style }: { title: string; children: React.Re
         <span style={{ display: 'inline-block', width: 10, transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 120ms ease' }}>▾</span>
         {title}
       </h2>
-      {!collapsed && children}
+      {!collapsed && (
+        <div style={{ animation: 'sectionFadeIn 150ms ease' }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -488,7 +523,7 @@ function LiveIndicator({ lastEventAt, now }: { lastEventAt: number | null | unde
   const ageSec = lastEventAt ? Math.floor((now - lastEventAt) / 1000) : null
   const live = ageSec !== null && ageSec < liveSec()
   const color = live ? '#16a34a' : ageSec === null ? '#6b7280' : '#ef4444'
-  const label = live ? 'LIVE' : ageSec === null ? 'IDLE' : 'STALE'
+  const label = live ? 'LIVE' : ageSec === null ? 'IDLE' : `STALE ${ageSec}s`
   const tooltip = ageSec === null ? 'Waiting for first SSE event' : `${ageSec}s since last event`
   return (
     <div title={tooltip} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9ca3af', cursor: 'help' }}>

@@ -18,6 +18,7 @@ export function App() {
   const [reviewReqs,  setReviewReqs]  = useState<ReviewRequest[]>([])
   const [repoPath,    setRepoPath]    = useState<string | undefined>(undefined)
   const [error,       setError]       = useState<string | null>(null)
+  const [loading,     setLoading]     = useState(true)
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [stopSummary, setStopSummary] = useState<{ path: string } | null>(null)
 
@@ -48,7 +49,7 @@ export function App() {
       setRuns(r ?? [])
       setVerdicts(rev.verdicts ?? [])
       setReviewReqs(rev.requests ?? [])
-    }).catch(err => setError(String(err)))
+    }).catch(err => setError(String(err))).finally(() => setLoading(false))
 
     return openStream(payload => {
       setLastEventAt(Date.now())
@@ -110,6 +111,23 @@ export function App() {
     Promise.all([api.approvals(), api.checkpoints(), api.tasks()])
       .then(([ap, cp, t]) => { setApprovals(ap); setCheckpoints(cp); setTasks(t) })
       .catch(() => {})
+  }
+
+  if (loading && !error) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#0f172a', flexDirection: 'column', gap: 16,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          border: '3px solid #1e3a5f', borderTopColor: '#3b82f6',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <span style={{ color: '#475569', fontSize: 13 }}>Connecting to server…</span>
+      </div>
+    )
   }
 
   if (error) {

@@ -23,6 +23,11 @@ async function postJSON<T>(path: string, body?: unknown): Promise<T> {
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (!res.ok) {
+    let msg = `${path} ${res.status}`
+    try { const j = await res.json(); if (j.error) msg = j.error } catch { /* ignore */ }
+    throw new Error(msg)
+  }
   return res.json() as Promise<T>
 }
 

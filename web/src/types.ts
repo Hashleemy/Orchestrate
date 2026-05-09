@@ -61,8 +61,8 @@ export interface Task {
   priority: string
   risk: string
   branch: string
-  depends_on: string[]
-  blocked_by: string[]
+  depends_on: string[] | null
+  blocked_by: string[] | null
 }
 
 export interface DiffSummary {
@@ -90,7 +90,7 @@ export interface Checkpoint {
   id: string
   kind: string
   detail: string
-  next_steps: string[]
+  next_steps: string[] | null
   status: 'pending' | 'resolved'
   choice?: string
   created_at: string
@@ -124,7 +124,7 @@ export interface ReviewVerdict {
   task_id: string
   branch: string
   verdict: 'approve' | 'revise'
-  issues: string[]
+  issues: string[] | null
   risk: 'low' | 'medium' | 'high'
   merge_recommendation: 'ready' | 'needs-changes' | 'escalate-to-user'
   reviewed_at: string
