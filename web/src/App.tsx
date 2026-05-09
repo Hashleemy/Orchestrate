@@ -102,7 +102,7 @@ export function App() {
     if (result.session_summary_path) {
       setStopSummary({ path: result.session_summary_path })
     } else {
-      toast('Run stopped.', 'success')
+      toast('success', 'Run stopped.')
     }
   }
 
@@ -114,10 +114,20 @@ export function App() {
 
   if (error) {
     return (
-      <div style={{ padding: 40, color: '#ef4444', fontFamily: 'monospace' }}>
-        Failed to connect: {error}
-        <br />
-        <small style={{ color: '#6b7280' }}>Is the Go server running on port 8080?</small>
+      <div style={{
+        padding: 40, fontFamily: 'monospace',
+        display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'flex-start',
+      }}>
+        <div style={{ color: '#ef4444', fontSize: 14 }}>Failed to connect: {error}</div>
+        <div style={{ color: '#6b7280', fontSize: 12 }}>Is the Go server running on port 8080?</div>
+        <button
+          onClick={() => { setError(null); loaded.current = false; window.location.reload() }}
+          style={{
+            background: '#1d4ed8', color: '#fff', border: 'none',
+            borderRadius: 6, padding: '7px 16px', cursor: 'pointer',
+            fontSize: 13, fontWeight: 600,
+          }}
+        >Retry</button>
       </div>
     )
   }

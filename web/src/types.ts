@@ -17,15 +17,26 @@ export interface OrchestratorEvent {
   task_id: string
   type:
     | 'task_started'
+    | 'task_claimed'
+    | 'task_promoted'
     | 'file_edit'
     | 'test_run'
+    | 'test_pass'
+    | 'test_fail'
     | 'commit'
+    | 'push'
+    | 'merged'
     | 'blocked'
     | 'unblocked'
     | 'approval_requested'
     | 'approval_received'
+    | 'approval_denied'
     | 'message_sent'
     | 'message_received'
+    | 'review_requested'
+    | 'review_complete'
+    | 'checkpoint_raised'
+    | 'checkpoint_resolved'
     | 'completed'
     | 'error'
   detail: string
@@ -161,6 +172,15 @@ export interface AgentPushResult {
   }
   checkpoint_id?: string
   output?: string
+}
+
+export interface HealthInfo {
+  ok:           boolean
+  version:      string
+  go_version:   string
+  started_at:   string
+  uptime_sec:   number
+  agents_alive: number
 }
 
 export interface AgentMessage {

@@ -23,8 +23,10 @@ const KIND_COLOR: Record<string, string> = {
 }
 
 function heartbeatAge(ts: string): { label: string; secs: number; stale: boolean; threshold: number } {
-  const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
+  const parsed = new Date(ts).getTime()
   const threshold = staleSec()
+  if (!parsed || parsed < 0) return { label: 'never', secs: Infinity, stale: true, threshold }
+  const secs = Math.max(0, Math.floor((Date.now() - parsed) / 1000))
   const stale = secs > threshold
   const label = secs < 60
     ? `${secs}s ago`

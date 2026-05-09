@@ -41,7 +41,7 @@ interface Props {
 
 export function Dashboard({ agents, events, approvals, tasks, messages, checkpoints, runs, verdicts, reviewRequests, repoPath, lastEventAt, onChangeRepo, onApprovalResolved, onCheckpointResolved, onStartRun, onStopRun, onStartReview, onRespawn, onTaskCreated }: Props) {
   const [showModal,    setShowModal]    = useState(false)
-  const [rerunSeed,    setRerunSeed]    = useState<{ description?: string; workerCount?: number } | null>(null)
+  const [rerunSeed,    setRerunSeed]    = useState<{ description?: string; workerCount?: number; repoPath?: string } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [agentQuery,   setAgentQuery]   = useState('')
   const [stateFilter,  setStateFilter]  = useState<string | null>(null)
@@ -49,7 +49,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
   const [commTask,     setCommTask]     = useState<string | null>(null)
   const [paletteOpen,  setPaletteOpen]  = useState(false)
   const [now, setNow] = useState(Date.now())
-  const agentQueryRef = useRef<HTMLInputElement | null>(null)
+  const agentQueryRef = useRef<HTMLInputElement>(null)
   const graphRef      = useRef<HTMLDivElement | null>(null)
   const commFeedRef   = useRef<HTMLDivElement | null>(null)
   const dimTerminal   = useSetting(dimTerminalAgents)
@@ -123,7 +123,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
         <StartRunModal
           onStart={onStartRun}
           onClose={() => { setShowModal(false); setRerunSeed(null) }}
-          currentRepoPath={repoPath}
+          currentRepoPath={rerunSeed?.repoPath ?? repoPath}
           initialDescription={rerunSeed?.description}
           initialWorkerCount={rerunSeed?.workerCount}
         />
@@ -332,7 +332,7 @@ export function Dashboard({ agents, events, approvals, tasks, messages, checkpoi
       <RunHistory
         runs={runs}
         onRerun={(run) => {
-          setRerunSeed({ workerCount: run.workers.length || 1 })
+          setRerunSeed({ workerCount: run.workers.length || 1, repoPath: run.repo_path || undefined })
           setShowModal(true)
         }}
       />
@@ -533,7 +533,7 @@ function AgentFilterBar({
   active: boolean
   matchCount: number
   total: number
-  inputRef?: React.RefObject<HTMLInputElement | null>
+  inputRef?: React.RefObject<HTMLInputElement>
 }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>

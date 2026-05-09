@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { api } from '../api/client'
 import { DEFAULTS, SETTING_KEYS, getBoolSetting, getIntSetting, setBoolSetting, setIntSetting } from '../settings'
 import { toast } from './Toast'
+import type { HealthInfo } from '../types'
 
 interface Props {
   open:    boolean
@@ -12,6 +14,12 @@ export function SettingsModal({ open, onClose }: Props) {
   const [live,  setLive]  = useState(() => getIntSetting(SETTING_KEYS.liveSec,  DEFAULTS.liveSec))
   const [dimTerminal, setDimTerminal] = useState(() => getBoolSetting(SETTING_KEYS.dimTerminal, true))
   const [compact,     setCompact]     = useState(() => getBoolSetting(SETTING_KEYS.compact,     false))
+  const [health,      setHealth]      = useState<HealthInfo | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    api.health().then(setHealth).catch(() => setHealth(null))
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -113,6 +121,18 @@ export function SettingsModal({ open, onClose }: Props) {
           />
         </div>
 
+        {health && (
+          <div style={{
+            marginTop: 18, paddingTop: 14, borderTop: '1px solid #1f2937',
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px',
+          }}>
+            <HealthRow label="Version"    value={health.version} />
+            <HealthRow label="Go"         value={health.go_version} />
+            <HealthRow label="Uptime"     value={formatUptime(health.uptime_sec)} />
+            <HealthRow label="Agents live" value={String(health.agents_alive)} />
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
           <button
             onClick={save}
@@ -180,4 +200,21 @@ function Field({ label, help, suffix, value, onChange }: {
       </div>
     </div>
   )
+}
+
+function HealthRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <span style={{ color: '#4b5563', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+      <span style={{ color: '#93c5fd', fontFamily: 'monospace', fontSize: 11 }}>{value}</span>
+    </div>
+  )
+}
+
+function formatUptime(sec: number): string {
+  if (sec < 60)    return `${sec}s`
+  if (sec < 3600)  return `${Math.floor(sec / 60)}m ${sec % 60}s`
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  return `${h}h ${m}m`
 }

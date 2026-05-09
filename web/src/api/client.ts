@@ -1,4 +1,4 @@
-import type { AgentMergeResult, AgentMessage, AgentPushResult, AgentStatus, Approval, Checkpoint, DiffSummary, OrchestratorEvent, RepoStatus, ReviewsPayload, RunRecord, RunSummary, Task } from '../types'
+import type { AgentMergeResult, AgentMessage, AgentPushResult, AgentStatus, Approval, Checkpoint, DiffSummary, HealthInfo, OrchestratorEvent, RepoStatus, ReviewsPayload, RunRecord, RunSummary, Task } from '../types'
 
 const base = '/api'
 
@@ -57,6 +57,7 @@ export const api = {
   updateTaskStatus: (id: string, status: string) =>
     postJSON<import('../types').Task>(`/tasks/${encodeURIComponent(id)}/status`, { status }),
   stopRun:     () => postJSON<{ status: string; session_summary_path: string; agents_killed: string[] }>('/run/stop'),
+  health:      () => get<HealthInfo>('/health'),
 }
 
 export type SSEPayload =
@@ -83,12 +84,13 @@ export function openStream(onMessage: (payload: SSEPayload) => void): () => void
       try { onMessage(JSON.parse(e.data) as SSEPayload) } catch { /* skip malformed */ }
     }
 
-    es.addEventListener('agents',    handle)
-    es.addEventListener('events',    handle)
-    es.addEventListener('approvals', handle)
-    es.addEventListener('tasks',     handle)
-    es.addEventListener('messages',  handle)
-    es.addEventListener('reviews',   handle)
+    es.addEventListener('agents',      handle)
+    es.addEventListener('events',      handle)
+    es.addEventListener('approvals',   handle)
+    es.addEventListener('tasks',       handle)
+    es.addEventListener('messages',    handle)
+    es.addEventListener('checkpoints', handle)
+    es.addEventListener('reviews',     handle)
 
     es.onerror = () => {
       if (cancelled) return

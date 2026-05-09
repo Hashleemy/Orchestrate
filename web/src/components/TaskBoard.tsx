@@ -11,9 +11,12 @@ const EDITABLE_STATUSES = [
   'awaiting_review', 'awaiting_approval', 'done', 'cancelled',
 ] as const
 
-const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 }
+const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, normal: 1, low: 2, '': 3 }
 
 const ALL_STATUSES = ['all', 'todo', 'ready', 'in_progress', 'blocked', 'awaiting_review', 'awaiting_approval', 'done', 'cancelled']
+
+const FILTER_STATUS_KEY  = 'orchestrate.taskboard.filterstatus'
+const SORT_PRIORITY_KEY  = 'orchestrate.taskboard.sortpriority'
 
 interface Props {
   tasks:           Task[]
@@ -101,8 +104,23 @@ function AddTaskForm({ onDone }: { onDone: () => void }) {
 }
 
 export function TaskBoard({ tasks, onTaskCreated, events = [], messages = [], onFilterFeedToTask }: Props) {
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [sortByPriority, setSortByPriority] = useState(true)
+  const [filterStatus, setFilterStatusState] = useState<string>(() => {
+    try { return localStorage.getItem(FILTER_STATUS_KEY) ?? 'all' } catch { return 'all' }
+  })
+  const setFilterStatus = (s: string) => {
+    try { localStorage.setItem(FILTER_STATUS_KEY, s) } catch { /* ignore */ }
+    setFilterStatusState(s)
+  }
+  const [sortByPriority, setSortByPriorityState] = useState<boolean>(() => {
+    try { return localStorage.getItem(SORT_PRIORITY_KEY) !== 'false' } catch { return true }
+  })
+  const setSortByPriority = (fn: boolean | ((prev: boolean) => boolean)) => {
+    setSortByPriorityState(prev => {
+      const next = typeof fn === 'function' ? fn(prev) : fn
+      try { localStorage.setItem(SORT_PRIORITY_KEY, String(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [openTask, setOpenTask] = useState<Task | null>(null)
