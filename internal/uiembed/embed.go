@@ -24,16 +24,12 @@ type spaHandler struct {
 }
 
 func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	f, err := s.fs.Open(r.URL.Path)
+	_, err := s.fs.Open(r.URL.Path)
 	if err != nil {
-		// not found → serve index.html for SPA routing
-		f, err = s.fs.Open("/index.html")
-		if err != nil {
-			http.Error(w, "index.html not found", http.StatusNotFound)
-			return
-		}
-		r.URL.Path = "/index.html"
+		// Unknown path → serve "/" so http.FileServer picks up index.html.
+		// Setting the path to "/index.html" would trigger http.FileServer's
+		// built-in redirect of *.../index.html → ./, so we use "/" instead.
+		r.URL.Path = "/"
 	}
-	f.Close()
 	http.FileServer(s.fs).ServeHTTP(w, r)
 }

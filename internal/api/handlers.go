@@ -538,6 +538,10 @@ func (h *handlers) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send initial keepalive so HTTP headers flush immediately.
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
 	fast := time.NewTicker(2 * time.Second)
 	slow := time.NewTicker(10 * time.Second)
 	defer fast.Stop()

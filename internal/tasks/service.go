@@ -2,11 +2,13 @@ package tasks
 
 import (
 	"fmt"
+	"sync"
 
 	"local-agent-orchestrator/internal/models"
 )
 
 type Service struct {
+	mu   sync.RWMutex
 	list *TaskList
 }
 
@@ -15,10 +17,16 @@ func NewService(list *TaskList) *Service {
 }
 
 func (s *Service) All() []models.Task {
-	return s.list.Tasks
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]models.Task, len(s.list.Tasks))
+	copy(out, s.list.Tasks)
+	return out
 }
 
 func (s *Service) ByID(id string) (*models.Task, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for i := range s.list.Tasks {
 		if s.list.Tasks[i].ID == id {
 			return &s.list.Tasks[i], nil
@@ -28,9 +36,17 @@ func (s *Service) ByID(id string) (*models.Task, error) {
 }
 
 func (s *Service) Transition(id string, to models.TaskStatus) error {
-	task, err := s.ByID(id)
-	if err != nil {
-		return err
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var task *models.Task
+	for i := range s.list.Tasks {
+		if s.list.Tasks[i].ID == id {
+			task = &s.list.Tasks[i]
+			break
+		}
+	}
+	if task == nil {
+		return fmt.Errorf("task not found: %s", id)
 	}
 	if err := ValidateTransition(task.Status, to); err != nil {
 		return err
@@ -40,6 +56,8 @@ func (s *Service) Transition(id string, to models.TaskStatus) error {
 }
 
 func (s *Service) ValidateDependencies() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	idSet := make(map[string]bool, len(s.list.Tasks))
 	for _, t := range s.list.Tasks {
 		idSet[t.ID] = true

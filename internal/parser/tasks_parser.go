@@ -11,6 +11,7 @@ import (
 
 // Parse reads a tasks.md string and returns a TaskList.
 func Parse(content string) (*tasks.TaskList, error) {
+	content = strings.TrimPrefix(content, "\xEF\xBB\xBF") // strip UTF-8 BOM if present
 	list := &tasks.TaskList{}
 	scanner := bufio.NewScanner(strings.NewReader(content))
 
@@ -100,6 +101,7 @@ func Parse(content string) (*tasks.TaskList, error) {
 }
 
 func applyField(t *models.Task, key, val string) error {
+	val = strings.TrimSpace(val)
 	switch key {
 	case "status":
 		t.Status = models.TaskStatus(val)
